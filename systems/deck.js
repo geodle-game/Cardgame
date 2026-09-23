@@ -38,13 +38,19 @@ export function draw(state, n) {
   }
 }
 
+// Called at end of player's turn. Retain cards stay in hand.
+// Everything else goes back into the draw pile, which shuffles.
 export function recycleHand(state) {
-  state.drawPile.push(...state.hand);
-  state.hand = [];
+  const retained = [];
+  for (const card of state.hand) {
+    const def = state.cardDef(card);
+    if (def?.retain) retained.push(card);
+    else state.drawPile.push(card);
+  }
+  state.hand = retained;
   state.drawPile = shuffle(state.drawPile, state.rng);
 }
 
-// Enemy deck helpers
 export function drawEnemyCard(enemy, rng) {
   if (enemy.cardDraw.length === 0) {
     if (enemy.cardDiscard.length === 0) return null;
