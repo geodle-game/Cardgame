@@ -1,4 +1,5 @@
 export const CARDS = {
+  // -------- Starter --------
   strike: {
     id: 'strike', name: 'Strike', cost: 1, rarity: 'starter',
     type: 'attack', target: 'enemy', destination: 'draw',
@@ -20,6 +21,8 @@ export const CARDS = {
       { kind: 'applyStatus', status: 'vulnerable', amount: 2 },
     ],
   },
+
+  // -------- Common attacks --------
   cleave: {
     id: 'cleave', name: 'Cleave', cost: 1, rarity: 'common',
     type: 'attack', target: 'all-enemies', destination: 'discard',
@@ -39,27 +42,6 @@ export const CARDS = {
     effects: [
       { kind: 'block', amount: 5 },
       { kind: 'damage', amount: 5 },
-    ],
-  },
-  recover: {
-    id: 'recover', name: 'Recover', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Heal 6.',
-    effects: [{ kind: 'heal', amount: 6 }],
-  },
-  adrenaline: {
-    id: 'adrenaline', name: 'Adrenaline', cost: 0, rarity: 'rare',
-    type: 'power', target: 'self', destination: 'exhaust',
-    text: 'Gain 3 Energy next turn. Exhaust.',
-    effects: [{ kind: 'gainEnergyNextTurn', amount: 3 }],
-  },
-  'shrug-it-off': {
-    id: 'shrug-it-off', name: 'Shrug It Off', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Gain 8 Block. Draw 1.',
-    effects: [
-      { kind: 'block', amount: 8 },
-      { kind: 'draw', amount: 1 },
     ],
   },
   'pommel-strike': {
@@ -83,16 +65,57 @@ export const CARDS = {
   anger: {
     id: 'anger', name: 'Anger', cost: 0, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 6 damage. Add a copy of this into your discard pile.',
+    text: 'Deal 6 damage. Add a copy of this into your draw pile.',
     effects: [
       { kind: 'damage', amount: 6 },
-      { kind: 'addCopyToDiscard' },
+      { kind: 'addCopyToDraw' },
+    ],
+  },
+  'quick-slash': {
+    id: 'quick-slash', name: 'Quick Slash', cost: 1, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'discard',
+    text: 'Deal 8 damage. Draw 2.',
+    effects: [
+      { kind: 'damage', amount: 8 },
+      { kind: 'draw', amount: 2 },
+    ],
+  },
+  'clothesline': {
+    id: 'clothesline', name: 'Clothesline', cost: 2, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'discard',
+    text: 'Deal 12 damage. Apply 2 Weak.',
+    effects: [
+      { kind: 'damage', amount: 12 },
+      { kind: 'applyStatus', status: 'weak', amount: 2 },
+    ],
+  },
+  'heavy-blade': {
+    id: 'heavy-blade', name: 'Heavy Blade', cost: 2, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'discard',
+    text: 'Deal 14 damage. Strength counts 3× for this attack.',
+    effects: [{ kind: 'damage', amount: 14, strengthMultiplier: 3 }],
+  },
+
+  // -------- Common skills --------
+  recover: {
+    id: 'recover', name: 'Recover', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'discard',
+    text: 'Heal 6.',
+    effects: [{ kind: 'heal', amount: 6 }],
+  },
+  'shrug-it-off': {
+    id: 'shrug-it-off', name: 'Shrug It Off', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'discard',
+    text: 'Gain 8 Block. Draw 1.',
+    effects: [
+      { kind: 'block', amount: 8 },
+      { kind: 'draw', amount: 1 },
     ],
   },
   flex: {
     id: 'flex', name: 'Flex', cost: 0, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Gain 2 Strength.',
+    type: 'skill', target: 'self', destination: 'discard', retain: true,
+    text: 'Gain 2 Strength. Retain.',
     effects: [{ kind: 'applyStatus', status: 'strength', amount: 2 }],
   },
   'true-grit': {
@@ -103,6 +126,20 @@ export const CARDS = {
       { kind: 'block', amount: 7 },
       { kind: 'exhaustRandom' },
     ],
+  },
+  'armaments': {
+    id: 'armaments', name: 'Armaments', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'discard',
+    text: 'Gain 5 Block.',
+    effects: [{ kind: 'block', amount: 5 }],
+  },
+
+  // -------- Rare / powers --------
+  adrenaline: {
+    id: 'adrenaline', name: 'Adrenaline', cost: 0, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'Gain 3 Energy next turn. Exhaust.',
+    effects: [{ kind: 'gainEnergyNextTurn', amount: 3 }],
   },
   'inflame': {
     id: 'inflame', name: 'Inflame', cost: 1, rarity: 'rare',
@@ -115,6 +152,33 @@ export const CARDS = {
     type: 'power', target: 'self', destination: 'exhaust',
     text: 'Gain 5 Strength. Exhaust.',
     effects: [{ kind: 'applyStatus', status: 'strength', amount: 5 }],
+  },
+  'bludgeon': {
+    id: 'bludgeon', name: 'Bludgeon', cost: 3, rarity: 'rare',
+    type: 'attack', target: 'enemy', destination: 'discard',
+    text: 'Deal 32 damage.',
+    effects: [{ kind: 'damage', amount: 32 }],
+  },
+  'impervious': {
+    id: 'impervious', name: 'Impervious', cost: 2, rarity: 'rare',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Gain 30 Block. Exhaust.',
+    effects: [{ kind: 'block', amount: 30 }],
+  },
+  'feed': {
+    id: 'feed', name: 'Feed', cost: 1, rarity: 'rare',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 10 damage. If this kills, gain 3 Max HP. Exhaust.',
+    effects: [
+      { kind: 'damage', amount: 10 },
+      { kind: 'feed', amount: 3 },
+    ],
+  },
+  'demon-form': {
+    id: 'demon-form', name: 'Demon Form', cost: 3, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'At the start of each turn, gain 2 Strength. Exhaust.',
+    effects: [{ kind: 'gainStatusPerTurn', status: 'strength', amount: 2 }],
   },
 };
 
