@@ -1,0 +1,25 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #14161a;
+  color: #e8eaee;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+}
+
+#app {
+  min-height: 100%;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hp { color: #e05c5c; }
+.block { color: #6fb3ff; }
+.energy { color: #ffd166; }
+.intent { color: #8b93a1; font-size: 13px; }
+
+.banner { text-align: center; font-size: 26px; color: #8f6bff; padding: 8px; }
