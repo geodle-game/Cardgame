@@ -1,11 +1,13 @@
 import {
   state, pushLog, startPlayerTurn, livingEnemies, rollIntent, endCombat,
 } from './state.js';
-import { draw, recycleHand, shuffle, makeCard } from './deck.js';
+import { draw, recycleHand, shuffle, makeCard, makeEnemyCard } from './deck.js';
 import {
-  applyStatus, outgoingMultiplier, incomingMultiplier, tickStatuses,
+  applyStatus, outgoingMultiplier, incomingMultiplier,
+  outgoingFlatBonus, tickStatuses,
 } from './statuses.js';
 import { CARDS } from '../data/cards.js';
+import { ENEMY_CARDS } from '../data/enemy-cards.js';
 
 export function canPlay(card) {
   if (state.turn !== 'player' || state.over) return false;
@@ -15,7 +17,6 @@ export function canPlay(card) {
 export function selectCardForPlay(card) {
   const def = CARDS[card.defId];
   if (!canPlay(card)) return;
-
   if (def.target === 'enemy' && livingEnemies().length > 1) {
     state.pendingCardUid = card.uid;
     pushLog(`Choose a target for ${def.name}.`);
@@ -29,11 +30,10 @@ export function playCard(card, explicitTargetId = null) {
   const def = CARDS[card.defId];
   state.energy -= def.cost;
   state.pendingCardUid = null;
-
   state.hand = state.hand.filter(c => c.uid !== card.uid);
 
   const targets = resolveTargets(def.target, explicitTargetId);
-  for (const eff of def.effects) applyEffect(eff, targets, card);
+  for (const eff of def.effects) applyEffect(eff, targets, card, state.player);
 
   const dest = def.destination ?? 'discard';
   if (dest === 'draw') {
@@ -62,49 +62,63 @@ function resolveTargets(targetKind, explicitId) {
   return [chosen];
 }
 
-function applyEffect(eff, targets, card) {
+// Resolve targets for an enemy card. From the enemy's perspective:
+//   'player'       → the player
+//   'self'         → itself
+//   'all-enemies'  → all living enemies (its own side)
+function resolveEnemyTargets(enemy, kind) {
+  if (kind === 'self') return [enemy];
+  if (kind === 'all-enemies') return livingEnemies();
+  return [state.player];
+}
+
+function applyEffect(eff, targets, card, source) {
   switch (eff.kind) {
     case 'damage':
       for (const t of targets) {
-        const r = dealDamage(state.player, t, eff.amount);
+        const r = dealDamage(source, t, eff.amount);
         pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
       }
       break;
 
     case 'damageEqualToBlock': {
-      const amount = Math.floor(state.player.block * (eff.multiplier ?? 1));
+      const amount = Math.floor(source.block * (eff.multiplier ?? 1));
       for (const t of targets) {
-        const r = dealDamage(state.player, t, amount);
+        const r = dealDamage(source, t, amount);
         pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
       }
       break;
     }
 
     case 'block':
-      state.player.block += eff.amount;
-      pushLog(`  Gained ${eff.amount} block.`);
+      source.block += eff.amount;
+      pushLog(`  ${source.name || 'You'} gained ${eff.amount} block.`);
       break;
 
     case 'heal':
-      state.player.hp = Math.min(state.player.maxHp, state.player.hp + eff.amount);
-      pushLog(`  Healed ${eff.amount}.`);
+      source.hp = Math.min(source.maxHp, source.hp + eff.amount);
+      pushLog(`  ${source.name || 'You'} healed ${eff.amount}.`);
       break;
 
     case 'applyStatus':
       for (const t of targets) {
         applyStatus(t, eff.status, eff.amount);
-        pushLog(`  ${t.name} gained ${eff.amount} ${eff.status}.`);
+        pushLog(`  ${t.name || 'You'} gained ${eff.amount} ${eff.status}.`);
       }
       break;
 
     case 'gainEnergyNextTurn':
-      state.player.nextTurnEnergy += eff.amount;
+      if (source.nextTurnEnergy !== undefined) {
+        source.nextTurnEnergy += eff.amount;
+      }
       pushLog(`  +${eff.amount} energy next turn.`);
       break;
 
     case 'draw':
-      draw(state, eff.amount);
-      pushLog(`  Drew ${eff.amount}.`);
+      if (source === state.player) {
+        draw(state, eff.amount);
+        pushLog(`  Drew ${eff.amount}.`);
+      }
       break;
 
     case 'addCopyToDiscard':
@@ -122,20 +136,17 @@ function applyEffect(eff, targets, card) {
       break;
     }
 
-    case 'endTurn':
-      pushLog('  (End turn effect — not wired yet.)');
-      break;
-
     default:
       pushLog(`  Unknown effect: ${eff.kind}`);
   }
 }
 
 export function dealDamage(attacker, target, base) {
-  let dmg = base;
+  let dmg = base + outgoingFlatBonus(attacker);
   dmg *= outgoingMultiplier(attacker);
   dmg *= incomingMultiplier(target);
   dmg = Math.floor(dmg);
+  if (dmg < 0) dmg = 0;
 
   const blocked = Math.min(target.block, dmg);
   target.block -= blocked;
@@ -163,19 +174,18 @@ export function resolveEnemyTurn() {
 
   for (const e of state.enemies) {
     if (e.hp <= 0) continue;
-    const intent = e.intent;
-    if (!intent) continue;
+    const card = e.intentCard;
+    if (!card) continue;
 
-    if (intent.kind === 'attack') {
-      const r = dealDamage(e, state.player, intent.amount);
-      pushLog(`${e.name} hits you for ${r.dealt} (blocked ${r.blocked}).`);
-    } else if (intent.kind === 'block') {
-      e.block += intent.amount;
-      pushLog(`${e.name} gains ${intent.amount} block.`);
-    } else if (intent.kind === 'heal') {
-      e.hp = Math.min(e.maxHp, e.hp + intent.amount);
-      pushLog(`${e.name} heals ${intent.amount}.`);
-    }
+    const def = ENEMY_CARDS[card.defId];
+    const targets = resolveEnemyTargets(e, def.target);
+
+    pushLog(`${e.name} plays ${def.name}.`);
+    for (const eff of def.effects) applyEffect(eff, targets, card, e);
+
+    // Enemy's card goes back into its own discard, recycled each turn
+    e.cardDiscard.push(card);
+
     tickStatuses(e);
     rollIntent(e);
   }
