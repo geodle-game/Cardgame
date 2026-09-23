@@ -1,0 +1,41 @@
+.top { display: flex; justify-content: space-between; gap: 16px; }
+
+.panel {
+  background: #1e2229;
+  border: 1px solid #333a45;
+  border-radius: 8px;
+  padding: 14px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bar { display: flex; align-items: center; gap: 16px; }
+
+.btn {
+  background: #8f6bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn:disabled { background: #262b34; color: #8b93a1; cursor: not-allowed; }
+
+.piles { color: #8b93a1; font-size: 13px; }
+
+.log {
+  background: #0f1114;
+  border: 1px solid #333a45;
+  border-radius: 8px;
+  padding: 8px;
+  height: 90px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: #8b93a1;
+  white-space: pre-line;
+}
