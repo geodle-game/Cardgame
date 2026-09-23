@@ -4,8 +4,7 @@ import {
 } from '../systems/combat.js';
 import { CARDS } from '../data/cards.js';
 import { RELICS } from '../data/relics.js';
-
-let lastRelicTrigger = 0;
+import { ENEMY_CARDS } from '../data/enemy-cards.js';
 
 export function render() {
   const app = document.getElementById('app');
@@ -15,10 +14,6 @@ export function render() {
   if (state.screen === 'deckView') return renderDeckView(app);
   if (state.screen === 'combat') return renderCombat(app);
   renderGameOver(app);
-}
-
-export function flashRelic() {
-  lastRelicTrigger = Date.now();
 }
 
 function renderRelicPick(app) {
@@ -126,7 +121,6 @@ function renderCombat(app) {
   c.appendChild(logEl());
 
   if (state.over) c.appendChild(endBanner());
-
   if (state.run.relic) c.appendChild(relicChip());
 
   app.appendChild(c);
@@ -136,7 +130,6 @@ function relicChip() {
   const r = RELICS[state.run.relic];
   const el = document.createElement('div');
   el.className = 'relic-chip';
-  if (Date.now() - lastRelicTrigger < 700) el.classList.add('triggered');
   el.innerHTML = `
     <div class="relic-name">${r.name}</div>
     <div class="relic-text">${r.text}</div>
@@ -171,6 +164,9 @@ function playerPanel() {
 
 function enemyPanel(e) {
   const dead = e.hp <= 0;
+  const wrap = document.createElement('div');
+  wrap.className = 'enemy-wrap' + (dead ? ' enemy-wrap-dead' : '');
+
   const el = document.createElement('div');
   el.className = 'panel enemy' + (dead ? ' enemy-dead' : '');
   el.dataset.panel = 'enemy';
@@ -179,15 +175,10 @@ function enemyPanel(e) {
   if (!dead && state.selectedEnemyId === e.uid) el.classList.add('enemy-selected');
   if (!dead && state.pendingCardUid) el.classList.add('enemy-targetable');
 
-  const intent = dead
-    ? '—'
-    : `${e.intent.kind} ${e.intent.amount ?? ''}`.trim();
-
   el.innerHTML = `
     <div class="panel-name">${e.name}</div>
     <div class="hp">HP ${e.hp} / ${e.maxHp}</div>
     <div class="block">Block ${e.block}</div>
-    <div class="intent">Intent: ${intent}</div>
     ${statusRow(e.statuses)}
   `;
 
@@ -196,10 +187,8 @@ function enemyPanel(e) {
       if (state.pendingCardUid) {
         const card = state.hand.find(c => c.uid === state.pendingCardUid);
         if (card) {
-          const rect = el.getBoundingClientRect();
           playCard(card, e.uid);
           render();
-          spawnFloat(rect.left + rect.width / 2, rect.top + 20, `-${CARDS[card.defId].effects[0]?.amount ?? '?'}`, 'damage');
           return;
         }
       }
@@ -207,6 +196,23 @@ function enemyPanel(e) {
       render();
     });
   }
+  wrap.appendChild(el);
+
+  if (!dead && e.intentCard) {
+    wrap.appendChild(enemyIntentCard(e.intentCard));
+  }
+
+  return wrap;
+}
+
+function enemyIntentCard(card) {
+  const def = ENEMY_CARDS[card.defId];
+  const el = document.createElement('div');
+  el.className = 'enemy-card';
+  el.innerHTML = `
+    <div class="enemy-card-name">${def.name}</div>
+    <div class="enemy-card-text">${def.text}</div>
+  `;
   return el;
 }
 
@@ -225,16 +231,8 @@ function cardInHand(card) {
   if (!canPlay(card)) el.classList.add('disabled');
   if (state.pendingCardUid === card.uid) el.classList.add('pending');
   el.addEventListener('click', () => {
-    const rect = el.getBoundingClientRect();
-    const wasPending = state.pendingCardUid;
     selectCardForPlay(card);
-    if (!state.pendingCardUid && !wasPending) {
-      // card actually played
-      el.classList.add('played');
-      setTimeout(render, 180);
-    } else {
-      render();
-    }
+    render();
   });
   return el;
 }
@@ -265,10 +263,8 @@ function bottomBar() {
     beginEnemyTurn();
     render();
     setTimeout(() => {
-      const before = state.player.hp;
       resolveEnemyTurn();
       render();
-      if (state.player.hp < before) shakePanel('player');
     }, 450);
   });
   bar.appendChild(btn);
@@ -286,7 +282,6 @@ function logEl() {
   const el = document.createElement('div');
   el.className = 'log';
   el.textContent = state.log.slice(-8).join('\n');
-  el.scrollTop = el.scrollHeight;
   return el;
 }
 
@@ -316,23 +311,4 @@ function renderGameOver(app) {
   el.className = 'screen screen-center';
   el.textContent = 'Game over.';
   app.appendChild(el);
-}
-
-// ---------- Animations ----------
-
-export function spawnFloat(x, y, text, kind = 'damage') {
-  const el = document.createElement('div');
-  el.className = `float-text ${kind}`;
-  el.textContent = text;
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 950);
-}
-
-export function shakePanel(which) {
-  const el = document.querySelector(`[data-panel="${which}"]`);
-  if (!el) return;
-  el.classList.add('shake');
-  setTimeout(() => el.classList.remove('shake'), 400);
 }
