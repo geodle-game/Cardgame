@@ -21,12 +21,17 @@ html, body {
 .block { color: #6fb3ff; }
 .energy { color: #ffd166; }
 .intent { color: #8b93a1; font-size: 13px; }
+.muted { color: #8b93a1; font-size: 13px; }
 
 .banner {
   text-align: center;
   font-size: 26px;
   color: #8f6bff;
   padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .log {
@@ -39,4 +44,69 @@ html, body {
   font-size: 13px;
   color: #8b93a1;
   white-space: pre-line;
+}
+
+.screen { padding: 24px; }
+.screen-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.relic-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.relic-card {
+  background: #1e2229;
+  border: 1px solid #333a45;
+  border-radius: 10px;
+  padding: 20px;
+  width: 220px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .1s ease, transform .1s ease;
+}
+
+.relic-card:hover {
+  border-color: #8f6bff;
+  transform: translateY(-4px);
+}
+
+.relic-name { font-weight: 600; font-size: 16px; }
+.relic-text { color: #8b93a1; font-size: 13px; }
+
+.deck-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  max-width: 900px;
+}
+
+.btn {
+  background: #8f6bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn:hover { filter: brightness(1.1); }
+.btn:disabled {
+  background: #262b34;
+  color: #8b93a1;
+  cursor: not-allowed;
 }
