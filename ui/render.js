@@ -422,4 +422,15 @@ export function shakePanel(uid) {
   const el = document.querySelector(sel);
   if (!el) return;
   el.classList.add('shake');
-  setTimeout(() => el.classList.remove('
+  setTimeout(() => el.classList.remove('shake'), 420);
+}
+
+export function flashPanel(uid) {
+  const sel = uid
+    ? `[data-panel="enemy"][data-uid="${uid}"]`
+    : `[data-panel="player"]`;
+  const el = document.querySelector(sel);
+  if (!el) return;
+  el.classList.add('hit-flash');
+  setTimeout(() => el.classList.remove('hit-flash'), 420);
+}
