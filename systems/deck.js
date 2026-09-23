@@ -4,6 +4,10 @@ export function makeCard(defId) {
   return { uid: `c${++uidCounter}`, defId };
 }
 
+export function makeEnemyCard(defId) {
+  return { uid: `ec${++uidCounter}`, defId };
+}
+
 export function makeRng(seed) {
   let s = (seed >>> 0) || 1;
   return function next() {
@@ -38,4 +42,14 @@ export function recycleHand(state) {
   state.drawPile.push(...state.hand);
   state.hand = [];
   state.drawPile = shuffle(state.drawPile, state.rng);
+}
+
+// Enemy deck helpers
+export function drawEnemyCard(enemy, rng) {
+  if (enemy.cardDraw.length === 0) {
+    if (enemy.cardDiscard.length === 0) return null;
+    enemy.cardDraw = shuffle(enemy.cardDiscard, rng);
+    enemy.cardDiscard = [];
+  }
+  return enemy.cardDraw.pop();
 }
