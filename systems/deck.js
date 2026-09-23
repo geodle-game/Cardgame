@@ -1,9 +1,8 @@
-import { CARDS } from '../data/cards.js';
-
-let uid = 0;
 export function makeCard(defId) {
-  return { uid: `c${++uid}`, defId };
+  return { uid: `c${++uidCounter}`, defId };
 }
+
+let uidCounter = 0;
 
 export function shuffle(arr) {
   const a = arr.slice();
