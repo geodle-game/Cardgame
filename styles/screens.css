@@ -165,7 +165,6 @@
   padding: 8px 0;
 }
 
-/* Relic chip in combat */
 .relic-chip {
   position: fixed;
   top: 16px;
@@ -191,7 +190,6 @@
   color: #8b93a1;
 }
 
-/* Enemy intent card shown under each enemy */
 .enemy-wrap {
   display: flex;
   flex-direction: column;
@@ -234,3 +232,127 @@
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* -------- Map -------- */
+
+.map-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.map-header {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #232833, #1a1e26);
+  border: 1px solid #3a4250;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.map-header .gold { color: #ffd166; }
+
+.map-board {
+  position: relative;
+  margin: 0 auto;
+  background: radial-gradient(ellipse at bottom, #1a1e28 0%, #14161a 70%);
+  border: 1px solid #2a2f3a;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.map-edges {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+}
+
+.map-node {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #161a22;
+  border: 2px solid #333a45;
+  color: #8b93a1;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform .12s ease, box-shadow .12s ease;
+  font-family: inherit;
+}
+
+.map-node-locked {
+  opacity: .35;
+  cursor: default;
+}
+
+.map-node-reachable {
+  box-shadow: 0 0 0 3px rgba(143,107,255,.2), 0 0 16px rgba(143,107,255,.35);
+  animation: mapPulse 1.6s ease-in-out infinite;
+}
+
+.map-node-reachable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px rgba(143,107,255,.35), 0 0 24px rgba(143,107,255,.6);
+}
+
+.map-node-current {
+  background: #2a1f4a;
+  box-shadow: 0 0 0 4px rgba(255,209,102,.3), 0 0 20px rgba(255,209,102,.5);
+}
+
+@keyframes mapPulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(143,107,255,.2), 0 0 12px rgba(143,107,255,.3); }
+  50%      { box-shadow: 0 0 0 5px rgba(143,107,255,.3), 0 0 22px rgba(143,107,255,.6); }
+}
+
+/* -------- Reward / Event / Shop / Rest -------- */
+
+.gold { color: #ffd166; font-weight: 600; }
+
+.event-text {
+  max-width: 520px;
+  text-align: center;
+  color: #b8bdc7;
+  line-height: 1.5;
+}
+
+.choice-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 340px;
+}
+
+.choice-btn { text-align: left; }
+
+.shop-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.shop-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #1e2229;
+  border: 1px solid #3a4250;
+  border-radius: 10px;
+}
+
+.shop-price { color: #ffd166; font-weight: 600; font-size: 14px; }
+.shop-unaffordable { opacity: .5; }
+.shop-card { cursor: default; }
+.shop-card:hover { transform: none; }
+
+.shop-heal { margin-top: 8px; }
