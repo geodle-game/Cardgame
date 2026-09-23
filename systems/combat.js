@@ -1,7 +1,7 @@
 import {
-  state, pushLog, startPlayerTurn, livingEnemies, rollIntent, endCombat,
+  state, pushLog, startPlayerTurn, livingEnemies, rollIntent, endCombat, cardDef,
 } from './state.js';
-import { draw, recycleHand, shuffle, makeCard, makeEnemyCard } from './deck.js';
+import { draw, recycleHand, shuffle, makeCard } from './deck.js';
 import {
   applyStatus, outgoingMultiplier, incomingMultiplier,
   outgoingFlatBonus, tickStatuses,
@@ -62,10 +62,6 @@ function resolveTargets(targetKind, explicitId) {
   return [chosen];
 }
 
-// Resolve targets for an enemy card. From the enemy's perspective:
-//   'player'       → the player
-//   'self'         → itself
-//   'all-enemies'  → all living enemies (its own side)
 function resolveEnemyTargets(enemy, kind) {
   if (kind === 'self') return [enemy];
   if (kind === 'all-enemies') return livingEnemies();
@@ -76,7 +72,7 @@ function applyEffect(eff, targets, card, source) {
   switch (eff.kind) {
     case 'damage':
       for (const t of targets) {
-        const r = dealDamage(source, t, eff.amount);
+        const r = dealDamage(source, t, eff.amount, eff.strengthMultiplier);
         pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
       }
       break;
@@ -121,6 +117,14 @@ function applyEffect(eff, targets, card, source) {
       }
       break;
 
+    case 'addCopyToDraw': {
+      const copy = makeCard(card.defId);
+      state.drawPile.push(copy);
+      state.drawPile = shuffle(state.drawPile, state.rng);
+      pushLog(`  A copy of ${CARDS[card.defId].name} shuffled into your draw pile.`);
+      break;
+    }
+
     case 'addCopyToDiscard':
       state.discardPile.push(makeCard(card.defId));
       pushLog(`  A copy of ${CARDS[card.defId].name} entered the discard pile.`);
@@ -136,13 +140,31 @@ function applyEffect(eff, targets, card, source) {
       break;
     }
 
+    case 'feed': {
+      const killed = targets.some(t => t.hp <= 0);
+      if (killed) {
+        state.player.maxHp += eff.amount;
+        state.player.hp += eff.amount;
+        state.run.maxHp += eff.amount;
+        pushLog(`  Feed! Max HP +${eff.amount}.`);
+      }
+      break;
+    }
+
+    case 'gainStatusPerTurn':
+      if (!state.player.perTurnStatuses) state.player.perTurnStatuses = [];
+      state.player.perTurnStatuses.push({ status: eff.status, amount: eff.amount });
+      pushLog(`  Will gain ${eff.amount} ${eff.status} each turn.`);
+      break;
+
     default:
       pushLog(`  Unknown effect: ${eff.kind}`);
   }
 }
 
-export function dealDamage(attacker, target, base) {
-  let dmg = base + outgoingFlatBonus(attacker);
+export function dealDamage(attacker, target, base, strengthMultiplier) {
+  const strBonus = outgoingFlatBonus(attacker) * (strengthMultiplier ?? 1);
+  let dmg = base + strBonus;
   dmg *= outgoingMultiplier(attacker);
   dmg *= incomingMultiplier(target);
   dmg = Math.floor(dmg);
@@ -182,10 +204,7 @@ export function resolveEnemyTurn() {
 
     pushLog(`${e.name} plays ${def.name}.`);
     for (const eff of def.effects) applyEffect(eff, targets, card, e);
-
-    // Enemy's card goes back into its own discard, recycled each turn
     e.cardDiscard.push(card);
-
     tickStatuses(e);
     rollIntent(e);
   }
@@ -194,6 +213,13 @@ export function resolveEnemyTurn() {
     pushLog('Defeat.');
     endCombat(false);
     return;
+  }
+
+  // Apply per-turn status effects before the new turn starts
+  if (state.player.perTurnStatuses) {
+    for (const entry of state.player.perTurnStatuses) {
+      applyStatus(state.player, entry.status, entry.amount);
+    }
   }
 
   startPlayerTurn();
