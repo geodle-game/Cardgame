@@ -22,4 +22,21 @@ html, body {
 .energy { color: #ffd166; }
 .intent { color: #8b93a1; font-size: 13px; }
 
-.banner { text-align: center; font-size: 26px; color: #8f6bff; padding: 8px; }
+.banner {
+  text-align: center;
+  font-size: 26px;
+  color: #8f6bff;
+  padding: 8px;
+}
+
+.log {
+  background: #0f1114;
+  border: 1px solid #333a45;
+  border-radius: 8px;
+  padding: 8px;
+  height: 110px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: #8b93a1;
+  white-space: pre-line;
+}
