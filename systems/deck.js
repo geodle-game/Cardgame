@@ -1,7 +1,6 @@
-import { pushLog } from './state.js';
+import { CARDS } from '../data/cards.js';
 
 let uid = 0;
-
 export function makeCard(defId) {
   return { uid: `c${++uid}`, defId };
 }
@@ -21,13 +20,13 @@ export function draw(state, n) {
       if (state.discardPile.length === 0) return;
       state.drawPile = shuffle(state.discardPile);
       state.discardPile = [];
-      pushLog('Reshuffled.');
     }
     state.hand.push(state.drawPile.pop());
   }
 }
 
-export function discardHand(state) {
-  state.discardPile.push(...state.hand);
+export function recycleHand(state) {
+  state.drawPile.push(...state.hand);
   state.hand = [];
+  state.drawPile = shuffle(state.drawPile);
 }
