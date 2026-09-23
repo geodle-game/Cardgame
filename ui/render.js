@@ -4,7 +4,8 @@ import {
 } from '../systems/combat.js';
 import { CARDS } from '../data/cards.js';
 import { RELICS } from '../data/relics.js';
-import { makeCard } from '../systems/deck.js';
+
+let lastRelicTrigger = 0;
 
 export function render() {
   const app = document.getElementById('app');
@@ -16,7 +17,9 @@ export function render() {
   renderGameOver(app);
 }
 
-// ---------- Relic pick ----------
+export function flashRelic() {
+  lastRelicTrigger = Date.now();
+}
 
 function renderRelicPick(app) {
   const wrap = document.createElement('div');
@@ -46,8 +49,6 @@ function renderRelicPick(app) {
   app.appendChild(wrap);
 }
 
-// ---------- Deck view ----------
-
 function renderDeckView(app) {
   const wrap = document.createElement('div');
   wrap.className = 'screen screen-center';
@@ -59,14 +60,16 @@ function renderDeckView(app) {
 
   const sub = document.createElement('p');
   sub.className = 'muted';
-  sub.textContent = `Relic: ${relic.name} — ${relic.text}`;
+  sub.innerHTML = `<strong style="color:#c9a3ff">${relic.name}</strong> — ${relic.text}`;
   wrap.appendChild(sub);
 
   const grid = document.createElement('div');
   grid.className = 'deck-grid';
-  for (const id of state.run.deckIds) {
-    grid.appendChild(cardFace(id, { disabled: true, small: true }));
-  }
+  state.run.deckIds.forEach((id, i) => {
+    const el = cardFace(id, { disabled: true, small: true });
+    el.style.animationDelay = `${i * 30}ms`;
+    grid.appendChild(el);
+  });
   wrap.appendChild(grid);
 
   const btn = document.createElement('button');
@@ -81,8 +84,6 @@ function renderDeckView(app) {
   app.appendChild(wrap);
 }
 
-// ---------- Combat ----------
-
 function renderCombat(app) {
   const c = document.createElement('div');
   c.className = 'combat';
@@ -90,8 +91,7 @@ function renderCombat(app) {
   const top = document.createElement('div');
   top.className = 'top';
 
-  const leftPile = pileEl('Draw', state.drawPile.length, 'left');
-  const rightPile = pileEl('Discard', state.discardPile.length, 'right');
+  top.appendChild(pileEl('Draw', state.drawPile.length, 'left'));
 
   const mid = document.createElement('div');
   mid.className = 'top-mid';
@@ -102,9 +102,8 @@ function renderCombat(app) {
   for (const e of state.enemies) enemies.appendChild(enemyPanel(e));
   mid.appendChild(enemies);
 
-  top.appendChild(leftPile);
   top.appendChild(mid);
-  top.appendChild(rightPile);
+  top.appendChild(pileEl('Discard', state.discardPile.length, 'right'));
   c.appendChild(top);
 
   if (state.pendingCardUid) {
@@ -116,7 +115,11 @@ function renderCombat(app) {
 
   const hand = document.createElement('div');
   hand.className = 'hand';
-  for (const card of state.hand) hand.appendChild(cardInHand(card));
+  state.hand.forEach((card, i) => {
+    const el = cardInHand(card);
+    el.style.animationDelay = `${i * 40}ms`;
+    hand.appendChild(el);
+  });
   c.appendChild(hand);
 
   c.appendChild(bottomBar());
@@ -124,7 +127,21 @@ function renderCombat(app) {
 
   if (state.over) c.appendChild(endBanner());
 
+  if (state.run.relic) c.appendChild(relicChip());
+
   app.appendChild(c);
+}
+
+function relicChip() {
+  const r = RELICS[state.run.relic];
+  const el = document.createElement('div');
+  el.className = 'relic-chip';
+  if (Date.now() - lastRelicTrigger < 700) el.classList.add('triggered');
+  el.innerHTML = `
+    <div class="relic-name">${r.name}</div>
+    <div class="relic-text">${r.text}</div>
+  `;
+  return el;
 }
 
 function pileEl(label, count, side) {
@@ -141,6 +158,7 @@ function playerPanel() {
   const p = state.player;
   const el = document.createElement('div');
   el.className = 'panel player';
+  el.dataset.panel = 'player';
   el.innerHTML = `
     <div class="panel-name">You</div>
     <div class="hp">HP ${p.hp} / ${p.maxHp}</div>
@@ -155,12 +173,11 @@ function enemyPanel(e) {
   const dead = e.hp <= 0;
   const el = document.createElement('div');
   el.className = 'panel enemy' + (dead ? ' enemy-dead' : '');
-  if (!dead) el.dataset.uid = e.uid;
+  el.dataset.panel = 'enemy';
+  el.dataset.uid = e.uid;
 
-  const selected = !dead && state.selectedEnemyId === e.uid;
-  const targetable = !dead && state.pendingCardUid;
-  if (selected) el.classList.add('enemy-selected');
-  if (targetable) el.classList.add('enemy-targetable');
+  if (!dead && state.selectedEnemyId === e.uid) el.classList.add('enemy-selected');
+  if (!dead && state.pendingCardUid) el.classList.add('enemy-targetable');
 
   const intent = dead
     ? '—'
@@ -179,8 +196,10 @@ function enemyPanel(e) {
       if (state.pendingCardUid) {
         const card = state.hand.find(c => c.uid === state.pendingCardUid);
         if (card) {
+          const rect = el.getBoundingClientRect();
           playCard(card, e.uid);
           render();
+          spawnFloat(rect.left + rect.width / 2, rect.top + 20, `-${CARDS[card.defId].effects[0]?.amount ?? '?'}`, 'damage');
           return;
         }
       }
@@ -195,18 +214,27 @@ function statusRow(statuses) {
   const keys = Object.keys(statuses || {});
   if (!keys.length) return '';
   return `<div class="statuses">${keys
-    .map(k => `<span class="status">${k} ${statuses[k]}</span>`)
+    .map(k => `<span class="status ${k}">${k} ${statuses[k]}</span>`)
     .join('')}</div>`;
 }
 
 function cardInHand(card) {
+  const def = CARDS[card.defId];
   const el = cardFace(card.defId);
-  const ok = canPlay(card);
-  if (!ok) el.classList.add('disabled');
+  el.classList.add(`rarity-${def.rarity || 'common'}`);
+  if (!canPlay(card)) el.classList.add('disabled');
   if (state.pendingCardUid === card.uid) el.classList.add('pending');
   el.addEventListener('click', () => {
+    const rect = el.getBoundingClientRect();
+    const wasPending = state.pendingCardUid;
     selectCardForPlay(card);
-    render();
+    if (!state.pendingCardUid && !wasPending) {
+      // card actually played
+      el.classList.add('played');
+      setTimeout(render, 180);
+    } else {
+      render();
+    }
   });
   return el;
 }
@@ -215,6 +243,7 @@ function cardFace(defId, { disabled = false, small = false } = {}) {
   const def = CARDS[defId];
   const el = document.createElement('div');
   el.className = 'card' + (disabled ? ' disabled' : '') + (small ? ' card-small' : '');
+  el.classList.add(`rarity-${def.rarity || 'common'}`);
   el.innerHTML = `
     <div class="cost">${def.cost}</div>
     <div class="cname">${def.name}</div>
@@ -236,8 +265,10 @@ function bottomBar() {
     beginEnemyTurn();
     render();
     setTimeout(() => {
+      const before = state.player.hp;
       resolveEnemyTurn();
       render();
+      if (state.player.hp < before) shakePanel('player');
     }, 450);
   });
   bar.appendChild(btn);
@@ -255,6 +286,7 @@ function logEl() {
   const el = document.createElement('div');
   el.className = 'log';
   el.textContent = state.log.slice(-8).join('\n');
+  el.scrollTop = el.scrollHeight;
   return el;
 }
 
@@ -268,7 +300,6 @@ function endBanner() {
   btn.textContent = state.result === 'win' ? 'Continue (placeholder)' : 'New Run';
   btn.addEventListener('click', () => {
     if (state.result === 'win') {
-      // Act loop not built yet — just start another combat.
       newCombat();
       render();
     } else {
@@ -285,4 +316,23 @@ function renderGameOver(app) {
   el.className = 'screen screen-center';
   el.textContent = 'Game over.';
   app.appendChild(el);
+}
+
+// ---------- Animations ----------
+
+export function spawnFloat(x, y, text, kind = 'damage') {
+  const el = document.createElement('div');
+  el.className = `float-text ${kind}`;
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
+
+export function shakePanel(which) {
+  const el = document.querySelector(`[data-panel="${which}"]`);
+  if (!el) return;
+  el.classList.add('shake');
+  setTimeout(() => el.classList.remove('shake'), 400);
 }
