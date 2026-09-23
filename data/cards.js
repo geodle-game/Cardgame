@@ -1,13 +1,13 @@
 export const CARDS = {
   strike: {
     id: 'strike', name: 'Strike', cost: 1, rarity: 'starter',
-    type: 'attack', target: 'enemy', destination: 'discard',
+    type: 'attack', target: 'enemy', destination: 'draw',
     text: 'Deal 6 damage.',
     effects: [{ kind: 'damage', amount: 6 }],
   },
   defend: {
     id: 'defend', name: 'Defend', cost: 1, rarity: 'starter',
-    type: 'skill', target: 'self', destination: 'discard',
+    type: 'skill', target: 'self', destination: 'draw',
     text: 'Gain 5 Block.',
     effects: [{ kind: 'block', amount: 5 }],
   },
@@ -49,8 +49,8 @@ export const CARDS = {
   },
   adrenaline: {
     id: 'adrenaline', name: 'Adrenaline', cost: 0, rarity: 'rare',
-    type: 'skill', target: 'self', destination: 'draw',
-    text: 'Gain 3 Energy next turn. Shuffle this back into your draw pile.',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'Gain 3 Energy next turn. Exhaust.',
     effects: [{ kind: 'gainEnergyNextTurn', amount: 3 }],
   },
   'shrug-it-off': {
@@ -92,7 +92,7 @@ export const CARDS = {
   flex: {
     id: 'flex', name: 'Flex', cost: 0, rarity: 'common',
     type: 'skill', target: 'self', destination: 'discard',
-    text: 'Gain 2 Strength. Lose it at end of turn.',
+    text: 'Gain 2 Strength.',
     effects: [{ kind: 'applyStatus', status: 'strength', amount: 2 }],
   },
   'true-grit': {
@@ -103,6 +103,18 @@ export const CARDS = {
       { kind: 'block', amount: 7 },
       { kind: 'exhaustRandom' },
     ],
+  },
+  'inflame': {
+    id: 'inflame', name: 'Inflame', cost: 1, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'Gain 3 Strength. Exhaust.',
+    effects: [{ kind: 'applyStatus', status: 'strength', amount: 3 }],
+  },
+  'limit-break': {
+    id: 'limit-break', name: 'Limit Break', cost: 1, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'Gain 5 Strength. Exhaust.',
+    effects: [{ kind: 'applyStatus', status: 'strength', amount: 5 }],
   },
 };
 
