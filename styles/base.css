@@ -3,7 +3,8 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: #14161a;
+  background:
+    radial-gradient(ellipse at top, #1c1f27 0%, #14161a 60%);
   color: #e8eaee;
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 15px;
@@ -32,6 +33,12 @@ html, body {
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  animation: bannerIn .35s cubic-bezier(.2,.9,.3,1.4);
+}
+
+@keyframes bannerIn {
+  from { opacity: 0; transform: scale(.85); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .log {
@@ -62,9 +69,9 @@ html, body {
 }
 
 .relic-card {
-  background: #1e2229;
-  border: 1px solid #333a45;
-  border-radius: 10px;
+  background: linear-gradient(180deg, #232833, #1a1e26);
+  border: 1px solid #3a4250;
+  border-radius: 12px;
   padding: 20px;
   width: 220px;
   color: inherit;
@@ -74,16 +81,23 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: border-color .1s ease, transform .1s ease;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
 }
 
 .relic-card:hover {
   border-color: #8f6bff;
-  transform: translateY(-4px);
+  transform: translateY(-6px);
+  box-shadow: 0 10px 24px rgba(143,107,255,.25);
 }
 
-.relic-name { font-weight: 600; font-size: 16px; }
-.relic-text { color: #8b93a1; font-size: 13px; }
+.relic-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: #c9a3ff;
+  letter-spacing: .02em;
+}
+.relic-text { color: #b8bdc7; font-size: 13px; line-height: 1.5; }
 
 .deck-grid {
   display: flex;
@@ -94,7 +108,7 @@ html, body {
 }
 
 .btn {
-  background: #8f6bff;
+  background: linear-gradient(180deg, #9d7cff, #7a55ff);
   color: white;
   border: none;
   border-radius: 8px;
@@ -102,11 +116,49 @@ html, body {
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
+  box-shadow: 0 2px 0 #5433c9, 0 4px 12px rgba(143,107,255,.3);
+  transition: transform .08s ease, box-shadow .08s ease, filter .08s ease;
 }
 
-.btn:hover { filter: brightness(1.1); }
+.btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #5433c9; }
 .btn:disabled {
   background: #262b34;
   color: #8b93a1;
+  box-shadow: none;
   cursor: not-allowed;
+  transform: none;
+}
+
+/* Floating combat text */
+.float-text {
+  position: fixed;
+  pointer-events: none;
+  font-weight: 700;
+  font-size: 22px;
+  z-index: 999;
+  animation: floatUp .9s ease-out forwards;
+  text-shadow: 0 2px 6px rgba(0,0,0,.6);
+}
+
+.float-text.damage { color: #ff6b6b; }
+.float-text.block  { color: #6fb3ff; }
+.float-text.heal   { color: #6bff9e; }
+
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.8); }
+  20%  { opacity: 1; transform: translate(-50%, -10px) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -60px) scale(1); }
+}
+
+/* Shake for taking damage */
+.shake {
+  animation: shake .35s cubic-bezier(.36,.07,.19,.97);
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
 }
