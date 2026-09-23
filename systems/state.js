@@ -1,6 +1,8 @@
 import { randomStartingDeck } from '../data/cards.js';
 import { ENCOUNTERS, getEnemyDef } from '../data/enemies.js';
-import { makeCard, shuffle, draw, makeRng } from './deck.js';
+import {
+  makeCard, shuffle, draw, makeRng, makeEnemyCard, drawEnemyCard,
+} from './deck.js';
 import { RELICS } from '../data/relics.js';
 
 export const state = {
@@ -68,7 +70,7 @@ export function confirmDeck() {
 
 export function newCombat(encounterId = 'act1-basic') {
   state.player = {
-    id: 'player',
+    id: 'player', name: 'You',
     hp: state.run.hp, maxHp: state.run.maxHp,
     block: 0,
     statuses: {},
@@ -78,14 +80,16 @@ export function newCombat(encounterId = 'act1-basic') {
   const ids = ENCOUNTERS[encounterId];
   state.enemies = ids.map((id, i) => {
     const def = getEnemyDef(id);
+    const cardDraw = shuffle(def.deck.map(makeEnemyCard), state.rng);
     return {
       ...def,
       uid: `e${i}`,
       maxHp: def.hp,
       block: 0,
       statuses: {},
-      moveIndex: 0,
-      intent: null,
+      cardDraw,
+      cardDiscard: [],
+      intentCard: null,
     };
   });
 
@@ -127,8 +131,8 @@ export function endCombat(win) {
 }
 
 export function rollIntent(enemy) {
-  enemy.intent = enemy.moves[enemy.moveIndex % enemy.moves.length];
-  enemy.moveIndex++;
+  const card = drawEnemyCard(enemy, state.rng);
+  enemy.intentCard = card;
 }
 
 export function startPlayerTurn() {
