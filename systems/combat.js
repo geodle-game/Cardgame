@@ -1,76 +1,158 @@
-import { state, pushLog, rollIntent } from './state.js';
-import { draw, discardHand } from './deck.js';
+import {
+  state, pushLog, startPlayerTurn, livingEnemies, rollIntent,
+} from './state.js';
+import { draw, recycleHand, shuffle } from './deck.js';
+import {
+  applyStatus, outgoingMultiplier, incomingMultiplier, tickStatuses,
+} from './statuses.js';
 import { CARDS } from '../data/cards.js';
 
 export function canPlay(card) {
-  if (state.turn !== 'player') return false;
+  if (state.turn !== 'player' || state.over) return false;
   return state.energy >= CARDS[card.defId].cost;
 }
 
-function dealDamage(attacker, target, amount) {
-  const blocked = Math.min(target.block, amount);
+export function playCard(card, explicitTargetId = null) {
+  if (!canPlay(card)) return false;
+  const def = CARDS[card.defId];
+  state.energy -= def.cost;
+
+  state.hand = state.hand.filter(c => c.uid !== card.uid);
+
+  const targets = resolveTargets(def.target, explicitTargetId);
+  for (const eff of def.effects) applyEffect(eff, targets);
+
+  const dest = def.destination ?? 'discard';
+  if (dest === 'draw') {
+    state.drawPile.push(card);
+    state.drawPile = shuffle(state.drawPile);
+  } else if (dest === 'exhaust') {
+    state.exhaustPile.push(card);
+  } else {
+    state.discardPile.push(card);
+  }
+
+  pushLog(`You played ${def.name}.`);
+  checkEnemiesDead();
+  return true;
+}
+
+function resolveTargets(targetKind, explicitId) {
+  if (targetKind === 'self' || targetKind === 'none') return [state.player];
+  if (targetKind === 'all-enemies') return livingEnemies();
+  const pool = livingEnemies();
+  if (!pool.length) return [];
+  const chosen =
+    pool.find(e => e.uid === explicitId) ||
+    pool.find(e => e.uid === state.selectedEnemyId) ||
+    pool[0];
+  return [chosen];
+}
+
+function applyEffect(eff, targets) {
+  switch (eff.kind) {
+    case 'damage':
+      for (const t of targets) {
+        const r = dealDamage(state.player, t, eff.amount);
+        pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
+      }
+      break;
+    case 'damageEqualToBlock': {
+      const amount = Math.floor(state.player.block * (eff.multiplier ?? 1));
+      for (const t of targets) {
+        const r = dealDamage(state.player, t, amount);
+        pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
+      }
+      break;
+    }
+    case 'block':
+      state.player.block += eff.amount;
+      pushLog(`  Gained ${eff.amount} block.`);
+      break;
+    case 'heal':
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + eff.amount);
+      pushLog(`  Healed ${eff.amount}.`);
+      break;
+    case 'applyStatus':
+      for (const t of targets) {
+        applyStatus(t, eff.status, eff.amount);
+        pushLog(`  ${t.name} gained ${eff.amount} ${eff.status}.`);
+      }
+      break;
+    case 'gainEnergyNextTurn':
+      state.player.nextTurnEnergy += eff.amount;
+      pushLog(`  +${eff.amount} energy next turn.`);
+      break;
+    case 'draw':
+      draw(state, eff.amount);
+      pushLog(`  Drew ${eff.amount}.`);
+      break;
+    case 'endTurn':
+      pushLog('  (End turn effect — not wired yet.)');
+      break;
+    default:
+      pushLog(`  Unknown effect: ${eff.kind}`);
+  }
+}
+
+export function dealDamage(attacker, target, base) {
+  let dmg = base;
+  dmg *= outgoingMultiplier(attacker);
+  dmg *= incomingMultiplier(target);
+  dmg = Math.floor(dmg);
+
+  const blocked = Math.min(target.block, dmg);
   target.block -= blocked;
-  const dealt = amount - blocked;
+  const dealt = dmg - blocked;
   target.hp = Math.max(0, target.hp - dealt);
   return { dealt, blocked };
 }
 
-export function playCard(card) {
-  if (!canPlay(card)) return;
-
-  const def = CARDS[card.defId];
-  state.energy -= def.cost;
-
-  for (const eff of def.effects) {
-    if (eff.kind === 'damage') {
-      const r = dealDamage(state.player, state.enemy, eff.amount);
-      pushLog(`You dealt ${r.dealt} (blocked ${r.blocked}).`);
-    } else if (eff.kind === 'block') {
-      state.player.block += eff.amount;
-      pushLog(`You gained ${eff.amount} block.`);
-    }
-  }
-
-  state.hand = state.hand.filter(c => c.uid !== card.uid);
-  state.discardPile.push(card);
-
-  if (state.enemy.hp <= 0) {
+function checkEnemiesDead() {
+  if (livingEnemies().length === 0) {
+    state.over = true;
+    state.result = 'win';
     state.turn = 'over';
     pushLog('Victory.');
   }
 }
 
-export function endTurn() {
-  if (state.turn !== 'player') return;
-
-  discardHand(state);
+export function beginEnemyTurn() {
+  if (state.turn !== 'player' || state.over) return;
+  recycleHand(state);
+  tickStatuses(state.player);
   state.turn = 'enemy';
+}
 
-  setTimeout(() => {
-    if (state.turn === 'over') return;
+export function resolveEnemyTurn() {
+  if (state.over) return;
 
-    const e = state.enemy;
+  for (const e of state.enemies) {
+    if (e.hp <= 0) continue;
     const intent = e.intent;
+    if (!intent) continue;
 
     if (intent.kind === 'attack') {
       const r = dealDamage(e, state.player, intent.amount);
-      pushLog(`Enemy hit you for ${r.dealt} (blocked ${r.blocked}).`);
+      pushLog(`${e.name} hits you for ${r.dealt} (blocked ${r.blocked}).`);
     } else if (intent.kind === 'block') {
       e.block += intent.amount;
-      pushLog(`Enemy gained ${intent.amount} block.`);
+      pushLog(`${e.name} gains ${intent.amount} block.`);
+    } else if (intent.kind === 'heal') {
+      e.hp = Math.min(e.maxHp, e.hp + intent.amount);
+      pushLog(`${e.name} heals ${intent.amount}.`);
     }
+    tickStatuses(e);
+    rollIntent(e);
+  }
 
-    if (state.player.hp <= 0) {
-      state.turn = 'over';
-      pushLog('Defeat.');
-      return;
-    }
+  if (state.player.hp <= 0) {
+    state.over = true;
+    state.result = 'loss';
+    state.turn = 'over';
+    pushLog('Defeat.');
+    return;
+  }
 
-    rollIntent();
-    state.player.block = 0;
-    state.energy = state.maxEnergy;
-    state.turn = 'player';
-    draw(state, 5);
-    pushLog('Your turn.');
-  }, 400);
+  startPlayerTurn();
 }
