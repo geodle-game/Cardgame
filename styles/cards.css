@@ -1,0 +1,41 @@
+.hand {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+}
+
+.card {
+  width: 130px;
+  min-height: 170px;
+  background: #1e2229;
+  border: 1px solid #333a45;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform .08s ease, border-color .08s ease;
+}
+
+.card:hover { transform: translateY(-6px); border-color: #8f6bff; }
+.card.disabled { opacity: .45; cursor: not-allowed; }
+.card.disabled:hover { transform: none; border-color: #333a45; }
+
+.cost {
+  background: #ffd166;
+  color: #14161a;
+  font-weight: 700;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+}
+
+.cname { font-weight: 600; }
+.ctext { color: #8b93a1; font-size: 13px; }
