@@ -1,7 +1,7 @@
-import { state, newCombat } from './systems/state.js';
+import { state, newRun } from './systems/state.js';
 import { render } from './ui/render.js';
 
-newCombat();
+newRun();
 render();
 
 window.__game = { state };
