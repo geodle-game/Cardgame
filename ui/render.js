@@ -1,27 +1,40 @@
-import { state, chooseRelic, confirmDeck, newCombat, newRun } from '../systems/state.js';
+import {
+  state, chooseRelic, confirmDeck, newRun, startNode, backToMap,
+  claimReward, takeRewardCard, skipRewardCard,
+  pickEventChoice, buyShopCard, buyShopHeal,
+  restHeal, restUpgrade, newCombat,
+} from '../systems/state.js';
 import {
   canPlay, playCard, selectCardForPlay, beginEnemyTurn, resolveEnemyTurn,
 } from '../systems/combat.js';
 import { CARDS } from '../data/cards.js';
 import { RELICS } from '../data/relics.js';
 import { ENEMY_CARDS } from '../data/enemy-cards.js';
+import { NODE_TYPES } from '../data/maps.js';
+import { getNode, reachableFrom, startingNodes } from '../systems/map.js';
 
 export function render() {
   const app = document.getElementById('app');
   app.innerHTML = '';
 
-  if (state.screen === 'relicPick') return renderRelicPick(app);
-  if (state.screen === 'deckView') return renderDeckView(app);
-  if (state.screen === 'combat') return renderCombat(app);
+  switch (state.screen) {
+    case 'relicPick': return renderRelicPick(app);
+    case 'deckView':  return renderDeckView(app);
+    case 'map':       return renderMap(app);
+    case 'combat':    return renderCombat(app);
+    case 'reward':    return renderReward(app);
+    case 'event':     return renderEvent(app);
+    case 'shop':      return renderShop(app);
+    case 'rest':      return renderRest(app);
+  }
   renderGameOver(app);
 }
 
-// ---------------- Relic pick ----------------
+// ---------------- Relic pick / deck view ----------------
 
 function renderRelicPick(app) {
   const wrap = document.createElement('div');
   wrap.className = 'screen screen-center';
-
   const h = document.createElement('h1');
   h.textContent = 'Choose a Relic';
   wrap.appendChild(h);
@@ -32,31 +45,21 @@ function renderRelicPick(app) {
     const r = RELICS[id];
     const el = document.createElement('button');
     el.className = 'relic-card';
-    el.innerHTML = `
-      <div class="relic-name">${r.name}</div>
-      <div class="relic-text">${r.text}</div>
-    `;
-    el.addEventListener('click', () => {
-      chooseRelic(id);
-      render();
-    });
+    el.innerHTML = `<div class="relic-name">${r.name}</div><div class="relic-text">${r.text}</div>`;
+    el.addEventListener('click', () => { chooseRelic(id); render(); });
     row.appendChild(el);
   }
   wrap.appendChild(row);
   app.appendChild(wrap);
 }
 
-// ---------------- Deck view ----------------
-
 function renderDeckView(app) {
   const wrap = document.createElement('div');
   wrap.className = 'screen screen-center';
-
   const relic = RELICS[state.run.relic];
   const h = document.createElement('h1');
   h.textContent = 'Your Starting Deck';
   wrap.appendChild(h);
-
   const sub = document.createElement('p');
   sub.className = 'muted';
   sub.innerHTML = `<strong style="color:#c9a3ff">${relic.name}</strong> — ${relic.text}`;
@@ -74,11 +77,268 @@ function renderDeckView(app) {
   const btn = document.createElement('button');
   btn.className = 'btn';
   btn.textContent = 'Begin';
-  btn.addEventListener('click', () => {
-    confirmDeck();
-    render();
-  });
+  btn.addEventListener('click', () => { confirmDeck(); render(); });
   wrap.appendChild(btn);
+  app.appendChild(wrap);
+}
+
+// ---------------- Map ----------------
+
+function renderMap(app) {
+  const map = state.run.map;
+  const wrap = document.createElement('div');
+  wrap.className = 'screen map-screen';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'map-header';
+  header.innerHTML = `
+    <div>HP <span class="hp">${state.run.hp}/${state.run.maxHp}</span></div>
+    <div>Gold <span class="gold">${state.run.gold}</span></div>
+    <div>Floor ${state.run.floor + 1} / ${map.floors}</div>
+    ${state.run.relic ? `<div>Relic <span style="color:#c9a3ff">${RELICS[state.run.relic].name}</span></div>` : ''}
+  `;
+  wrap.appendChild(header);
+
+  const board = document.createElement('div');
+  board.className = 'map-board';
+
+  // Layout constants
+  const rowH = 64;
+  const colW = 92;
+  const padX = 40;
+  const padY = 30;
+
+  const maxCol = Math.max(...map.nodes.map(n => n.col));
+  const width = padX * 2 + (maxCol + 1) * colW;
+  const height = padY * 2 + (map.floors + 1) * rowH;
+  board.style.width = width + 'px';
+  board.style.height = height + 'px';
+
+  // Position nodes
+  const pos = (n) => ({
+    x: padX + n.col * colW + colW / 2,
+    y: height - (padY + n.floor * rowH + rowH / 2),
+  });
+
+  // Reachability
+  const currentNode = state.run.currentNodeId
+    ? getNode(map, state.run.currentNodeId) : null;
+  const reachableIds = currentNode
+    ? reachableFrom(map, currentNode.id).map(n => n.id)
+    : startingNodes(map).map(n => n.id);
+  const reachSet = new Set(reachableIds);
+
+  // Draw edges first
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'map-edges');
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  for (const n of map.nodes) {
+    const a = pos(n);
+    for (const nextId of n.next) {
+      const t = getNode(map, nextId);
+      if (!t) continue;
+      const b = pos(t);
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      // slight curve
+      const d = `M ${a.x} ${a.y} Q ${mx} ${a.y} ${b.x} ${b.y}`;
+      path.setAttribute('d', d);
+      path.setAttribute('stroke',
+        reachSet.has(nextId) ? '#8f6bff' : '#2a2f3a');
+      path.setAttribute('stroke-width', reachSet.has(nextId) ? 2.5 : 1.5);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(path);
+    }
+  }
+  board.appendChild(svg);
+
+  // Draw nodes
+  for (const n of map.nodes) {
+    const { x, y } = pos(n);
+    const info = NODE_TYPES[n.type];
+    const el = document.createElement('button');
+    el.className = 'map-node';
+    el.style.left = (x - 26) + 'px';
+    el.style.top = (y - 26) + 'px';
+    el.style.borderColor = info.color;
+    el.style.color = info.color;
+    el.title = info.label;
+    el.textContent = info.symbol;
+
+    if (state.run.currentNodeId === n.id) el.classList.add('map-node-current');
+    if (reachSet.has(n.id)) {
+      el.classList.add('map-node-reachable');
+      el.addEventListener('click', () => { startNode(n.id); render(); });
+    } else {
+      el.classList.add('map-node-locked');
+    }
+
+    board.appendChild(el);
+  }
+
+  wrap.appendChild(board);
+  app.appendChild(wrap);
+}
+
+// ---------------- Reward ----------------
+
+function renderReward(app) {
+  const r = state.reward;
+  const wrap = document.createElement('div');
+  wrap.className = 'screen screen-center';
+
+  const h = document.createElement('h1');
+  h.textContent = 'Victory';
+  wrap.appendChild(h);
+
+  const gold = document.createElement('p');
+  gold.className = 'gold';
+  gold.textContent = `+${r.coins} gold`;
+  wrap.appendChild(gold);
+
+  if (!r.taken) {
+    const sub = document.createElement('p');
+    sub.className = 'muted';
+    sub.textContent = 'Choose a card:';
+    wrap.appendChild(sub);
+
+    const grid = document.createElement('div');
+    grid.className = 'deck-grid';
+    for (const id of r.cards) {
+      const el = cardFace(id);
+      el.addEventListener('click', () => { takeRewardCard(id); render(); });
+      grid.appendChild(el);
+    }
+    wrap.appendChild(grid);
+
+    const skip = document.createElement('button');
+    skip.className = 'btn';
+    skip.textContent = 'Skip';
+    skip.addEventListener('click', () => { skipRewardCard(); render(); });
+    wrap.appendChild(skip);
+  }
+
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Continue';
+  btn.addEventListener('click', () => { claimReward(); render(); });
+  wrap.appendChild(btn);
+
+  app.appendChild(wrap);
+}
+
+// ---------------- Event ----------------
+
+function renderEvent(app) {
+  const ev = state.event.data;
+  const wrap = document.createElement('div');
+  wrap.className = 'screen screen-center';
+
+  const h = document.createElement('h1');
+  h.textContent = ev.name;
+  wrap.appendChild(h);
+
+  const p = document.createElement('p');
+  p.className = 'event-text';
+  p.textContent = ev.text;
+  wrap.appendChild(p);
+
+  const choices = document.createElement('div');
+  choices.className = 'choice-col';
+  ev.choices.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn choice-btn';
+    btn.textContent = c.label;
+    btn.addEventListener('click', () => { pickEventChoice(i); render(); });
+    choices.appendChild(btn);
+  });
+  wrap.appendChild(choices);
+  app.appendChild(wrap);
+}
+
+// ---------------- Shop ----------------
+
+function renderShop(app) {
+  const s = state.shop;
+  const wrap = document.createElement('div');
+  wrap.className = 'screen screen-center';
+
+  const h = document.createElement('h1');
+  h.textContent = 'Shop';
+  wrap.appendChild(h);
+
+  const gold = document.createElement('p');
+  gold.className = 'gold';
+  gold.textContent = `Gold: ${state.run.gold}`;
+  wrap.appendChild(gold);
+
+  const grid = document.createElement('div');
+  grid.className = 'shop-grid';
+  s.items.forEach((item, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'shop-cell';
+    const card = cardFace(item.defId, { small: true });
+    card.classList.add('shop-card');
+    cell.appendChild(card);
+    const price = document.createElement('div');
+    price.className = 'shop-price';
+    price.textContent = `${item.price}g`;
+    cell.appendChild(price);
+    const affordable = state.run.gold >= item.price;
+    if (!affordable) cell.classList.add('shop-unaffordable');
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = 'Buy';
+    btn.disabled = !affordable;
+    btn.addEventListener('click', () => { buyShopCard(i); render(); });
+    cell.appendChild(btn);
+    grid.appendChild(cell);
+  });
+  wrap.appendChild(grid);
+
+  const healRow = document.createElement('div');
+  healRow.className = 'shop-heal';
+  const healBtn = document.createElement('button');
+  healBtn.className = 'btn';
+  healBtn.textContent = `Heal 25 HP — ${s.healPrice}g`;
+  healBtn.disabled = state.run.gold < s.healPrice;
+  healBtn.addEventListener('click', () => { buyShopHeal(); render(); });
+  healRow.appendChild(healBtn);
+  wrap.appendChild(healRow);
+
+  const leave = document.createElement('button');
+  leave.className = 'btn';
+  leave.textContent = 'Leave';
+  leave.addEventListener('click', () => { backToMap(); render(); });
+  wrap.appendChild(leave);
+
+  app.appendChild(wrap);
+}
+
+// ---------------- Rest ----------------
+
+function renderRest(app) {
+  const wrap = document.createElement('div');
+  wrap.className = 'screen screen-center';
+  const h = document.createElement('h1');
+  h.textContent = 'Rest Site';
+  wrap.appendChild(h);
+
+  const healBtn = document.createElement('button');
+  healBtn.className = 'btn';
+  healBtn.textContent = 'Rest — heal 30%';
+  healBtn.addEventListener('click', () => { restHeal(); render(); });
+  wrap.appendChild(healBtn);
+
+  const medBtn = document.createElement('button');
+  medBtn.className = 'btn';
+  medBtn.textContent = 'Meditate — heal 10% (upgrade placeholder)';
+  medBtn.addEventListener('click', () => { restUpgrade(); render(); });
+  wrap.appendChild(medBtn);
 
   app.appendChild(wrap);
 }
@@ -136,20 +396,14 @@ function relicChip() {
   const r = RELICS[state.run.relic];
   const el = document.createElement('div');
   el.className = 'relic-chip';
-  el.innerHTML = `
-    <div class="relic-name">${r.name}</div>
-    <div class="relic-text">${r.text}</div>
-  `;
+  el.innerHTML = `<div class="relic-name">${r.name}</div><div class="relic-text">${r.text}</div>`;
   return el;
 }
 
 function pileEl(label, count, side) {
   const el = document.createElement('div');
   el.className = `pile pile-${side}`;
-  el.innerHTML = `
-    <div class="pile-label">${label}</div>
-    <div class="pile-count">${count}</div>
-  `;
+  el.innerHTML = `<div class="pile-label">${label}</div><div class="pile-count">${count}</div>`;
   return el;
 }
 
@@ -192,10 +446,7 @@ function enemyPanel(e) {
     el.addEventListener('click', () => {
       if (state.pendingCardUid) {
         const card = state.hand.find(c => c.uid === state.pendingCardUid);
-        if (card) {
-          doPlayCard(card, el, e.uid);
-          return;
-        }
+        if (card) { doPlayCard(card, null, e.uid); return; }
       }
       state.selectedEnemyId = e.uid;
       render();
@@ -203,10 +454,7 @@ function enemyPanel(e) {
   }
   wrap.appendChild(el);
 
-  if (!dead && e.intentCard) {
-    wrap.appendChild(enemyIntentCard(e.intentCard));
-  }
-
+  if (!dead && e.intentCard) wrap.appendChild(enemyIntentCard(e.intentCard));
   return wrap;
 }
 
@@ -237,25 +485,13 @@ function cardInHand(card) {
 
   el.addEventListener('click', () => {
     if (!canPlay(card)) return;
-
-    // If targeting, we need a target. If only one enemy alive, auto-target it.
     if (def.target === 'enemy') {
       const living = state.enemies.filter(x => x.hp > 0);
-      if (living.length > 1) {
-        selectCardForPlay(card);
-        render();
-        return;
-      }
-      if (living.length === 1) {
-        const targetEl = document.querySelector(`[data-panel="enemy"][data-uid="${living[0].uid}"]`);
-        doPlayCard(card, el, living[0].uid);
-        return;
-      }
+      if (living.length > 1) { selectCardForPlay(card); render(); return; }
+      if (living.length === 1) { doPlayCard(card, el, living[0].uid); return; }
     }
-
     doPlayCard(card, el, null);
   });
-
   return el;
 }
 
@@ -265,7 +501,6 @@ function doPlayCard(card, sourceEl, targetUid) {
     ? document.querySelector(`[data-panel="enemy"][data-uid="${targetUid}"]`)
     : document.querySelector(`[data-panel="player"]`);
 
-  // Capture source position for the flight animation.
   if (sourceEl) {
     const sRect = sourceEl.getBoundingClientRect();
     const tRect = targetEl ? targetEl.getBoundingClientRect() : sRect;
@@ -276,22 +511,17 @@ function doPlayCard(card, sourceEl, targetUid) {
     sourceEl.classList.add('playing');
   }
 
-  // Wait for the flight to be most of the way there, then resolve.
   setTimeout(() => {
     playCard(card, targetUid);
     render();
-
-    // Impact effects
     if (targetEl) {
       const r = targetEl.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       spawnSpark(cx, cy);
-
       const hasDamage = def.effects.some(e => e.kind === 'damage' || e.kind === 'damageEqualToBlock');
       const hasBlock = def.effects.some(e => e.kind === 'block');
       const hasHeal = def.effects.some(e => e.kind === 'heal');
-
       if (hasDamage && targetUid) {
         shakePanel(targetUid);
         flashPanel(targetUid);
@@ -299,17 +529,11 @@ function doPlayCard(card, sourceEl, targetUid) {
       }
       if (hasBlock) {
         const p = document.querySelector('[data-panel="player"]');
-        if (p) {
-          const pr = p.getBoundingClientRect();
-          spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+BLOCK', 'block');
-        }
+        if (p) { const pr = p.getBoundingClientRect(); spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+BLOCK', 'block'); }
       }
       if (hasHeal) {
         const p = document.querySelector('[data-panel="player"]');
-        if (p) {
-          const pr = p.getBoundingClientRect();
-          spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+HP', 'heal');
-        }
+        if (p) { const pr = p.getBoundingClientRect(); spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+HP', 'heal'); }
       }
     }
   }, 220);
@@ -334,7 +558,6 @@ function cardFace(defId, { disabled = false, small = false } = {}) {
 function bottomBar() {
   const bar = document.createElement('div');
   bar.className = 'bar';
-
   const btn = document.createElement('button');
   btn.className = 'btn';
   btn.textContent = 'End Turn';
@@ -343,19 +566,14 @@ function bottomBar() {
     state.pendingCardUid = null;
     beginEnemyTurn();
     render();
-    setTimeout(() => {
-      resolveEnemyTurn();
-      render();
-    }, 450);
+    setTimeout(() => { resolveEnemyTurn(); render(); }, 450);
   });
   bar.appendChild(btn);
 
   const piles = document.createElement('span');
   piles.className = 'piles';
-  piles.textContent =
-    `Draw ${state.drawPile.length} · Discard ${state.discardPile.length} · Exhaust ${state.exhaustPile.length}`;
+  piles.textContent = `Draw ${state.drawPile.length} · Discard ${state.discardPile.length} · Exhaust ${state.exhaustPile.length}`;
   bar.appendChild(piles);
-
   return bar;
 }
 
@@ -373,16 +591,16 @@ function endBanner() {
 
   const btn = document.createElement('button');
   btn.className = 'btn';
-  btn.textContent = state.result === 'win' ? 'Continue (placeholder)' : 'New Run';
-  btn.addEventListener('click', () => {
-    if (state.result === 'win') {
-      newCombat();
+  if (state.result === 'win') {
+    btn.textContent = 'Rewards';
+    btn.addEventListener('click', () => {
+      state.screen = 'reward';
       render();
-    } else {
-      newRun();
-      render();
-    }
-  });
+    });
+  } else {
+    btn.textContent = 'New Run';
+    btn.addEventListener('click', () => { newRun(); render(); });
+  }
   el.appendChild(btn);
   return el;
 }
@@ -416,9 +634,7 @@ export function spawnSpark(x, y) {
 }
 
 export function shakePanel(uid) {
-  const sel = uid
-    ? `[data-panel="enemy"][data-uid="${uid}"]`
-    : `[data-panel="player"]`;
+  const sel = uid ? `[data-panel="enemy"][data-uid="${uid}"]` : `[data-panel="player"]`;
   const el = document.querySelector(sel);
   if (!el) return;
   el.classList.add('shake');
@@ -426,9 +642,7 @@ export function shakePanel(uid) {
 }
 
 export function flashPanel(uid) {
-  const sel = uid
-    ? `[data-panel="enemy"][data-uid="${uid}"]`
-    : `[data-panel="player"]`;
+  const sel = uid ? `[data-panel="enemy"][data-uid="${uid}"]` : `[data-panel="player"]`;
   const el = document.querySelector(sel);
   if (!el) return;
   el.classList.add('hit-flash');
