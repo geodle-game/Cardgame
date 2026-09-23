@@ -1,0 +1,130 @@
+.combat {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: calc(100vh - 32px);
+}
+
+.top {
+  display: grid;
+  grid-template-columns: 90px 1fr 90px;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.top-mid {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.pile {
+  background: #1e2229;
+  border: 1px solid #333a45;
+  border-radius: 8px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 90px;
+  justify-content: center;
+}
+
+.pile-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #8b93a1;
+}
+
+.pile-count {
+  font-size: 22px;
+  font-weight: 700;
+  color: #c9a3ff;
+}
+
+.enemies {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.panel {
+  background: #1e2229;
+  border: 1px solid #333a45;
+  border-radius: 8px;
+  padding: 14px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.panel-name { font-weight: 600; margin-bottom: 4px; }
+
+.enemy {
+  cursor: pointer;
+  transition: border-color .1s ease, transform .1s ease;
+}
+.enemy:hover { border-color: #4a5464; }
+.enemy-selected { border-color: #8f6bff; }
+.enemy-targetable {
+  border-color: #ff8f6b;
+  box-shadow: 0 0 0 2px rgba(255, 143, 107, .25);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.enemy-dead {
+  opacity: .35;
+  cursor: default;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 143, 107, .2); }
+  50%      { box-shadow: 0 0 0 6px rgba(255, 143, 107, .1); }
+}
+
+.statuses {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.status {
+  background: #262b34;
+  border: 1px solid #333a45;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  color: #c9a3ff;
+}
+
+.target-hint {
+  text-align: center;
+  color: #ff8f6b;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: auto;
+}
+
+.piles { color: #8b93a1; font-size: 13px; }
+
+.hand {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 8px 0;
+}
