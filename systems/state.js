@@ -33,7 +33,7 @@ export const state = {
   shop: null,
   rest: null,
 
-  overlays: { deck: false, relics: false },
+  overlays: { deck: false, relics: false, draw: false, discard: false, exhaust: false },
 
   log: [],
   relicChoices: [],
@@ -71,7 +71,11 @@ export function newRun(seed = Date.now()) {
   state.log = [];
   state.over = false;
   state.result = null;
-  state.overlays = { deck: false, relics: false };
+  state.overlays = emptyOverlays();
+}
+
+function emptyOverlays() {
+  return { deck: false, relics: false, draw: false, discard: false, exhaust: false };
 }
 
 function pickRelicChoices() {
@@ -101,19 +105,20 @@ export function confirmDeck() {
 
 // ---------- Overlays ----------
 
-export function toggleDeckOverlay() {
-  state.overlays.deck = !state.overlays.deck;
-  if (state.overlays.deck) state.overlays.relics = false;
-}
-
-export function toggleRelicOverlay() {
-  state.overlays.relics = !state.overlays.relics;
-  if (state.overlays.relics) state.overlays.deck = false;
-}
-
 export function closeOverlays() {
-  state.overlays = { deck: false, relics: false };
+  state.overlays = emptyOverlays();
 }
+
+function openOnly(key) {
+  state.overlays = emptyOverlays();
+  state.overlays[key] = true;
+}
+
+export function toggleDeckOverlay()    { openOnly(state.overlays.deck    ? null : 'deck'); }
+export function toggleRelicOverlay()   { openOnly(state.overlays.relics  ? null : 'relics'); }
+export function toggleDrawOverlay()    { openOnly(state.overlays.draw    ? null : 'draw'); }
+export function toggleDiscardOverlay() { openOnly(state.overlays.discard ? null : 'discard'); }
+export function toggleExhaustOverlay() { openOnly(state.overlays.exhaust ? null : 'exhaust'); }
 
 // ---------- Map ----------
 
@@ -184,7 +189,7 @@ export function backToMap() {
   state.event = null;
   state.shop = null;
   state.rest = null;
-  state.overlays = { deck: false, relics: false };
+  state.overlays = emptyOverlays();
 }
 
 // ---------- Combat ----------
@@ -227,7 +232,7 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   state.pendingCardUid = null;
   state.selectedEnemyId = state.enemies[0]?.uid ?? null;
   state.log = [];
-  state.overlays = { deck: false, relics: false };
+  state.overlays = emptyOverlays();
 
   const relic = state.run.relic ? RELICS[state.run.relic] : null;
   if (relic?.trigger === 'combatStart') {
