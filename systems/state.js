@@ -115,7 +115,7 @@ export function newCombat(encounterId = 'act1-basic') {
   }
 
   for (const e of state.enemies) rollIntent(e);
-  startPlayerTurn();
+  startPlayerTurn(true);
   pushLog('Combat start.');
 }
 
@@ -135,9 +135,9 @@ export function rollIntent(enemy) {
   enemy.intentCard = card;
 }
 
-export function startPlayerTurn() {
+export function startPlayerTurn(isFirstTurn = false) {
   state.turn = 'player';
-  state.player.block = 0;
+  if (!isFirstTurn) state.player.block = 0;
   state.energy = state.maxEnergy + (state.player.nextTurnEnergy || 0);
   state.player.nextTurnEnergy = 0;
   draw(state, 5);
