@@ -1,26 +1,15 @@
 export const ENEMIES = {
   'jaw-worm': {
     id: 'jaw-worm', name: 'Jaw Worm', hp: 42,
-    moves: [
-      { kind: 'attack', amount: 11 },
-      { kind: 'block',  amount: 6  },
-      { kind: 'attack', amount: 7  },
-    ],
+    deck: ['bite', 'harden', 'chomp', 'bite'],
   },
   louse: {
     id: 'louse', name: 'Louse', hp: 14,
-    moves: [
-      { kind: 'attack', amount: 5 },
-      { kind: 'attack', amount: 6 },
-    ],
+    deck: ['bite', 'spit', 'bite'],
   },
   cultist: {
     id: 'cultist', name: 'Cultist', hp: 48,
-    moves: [
-      { kind: 'attack', amount: 6 },
-      { kind: 'heal',   amount: 8 },
-      { kind: 'attack', amount: 12 },
-    ],
+    deck: ['ritual', 'dark-strike', 'dark-strike', 'ritual'],
   },
 };
 
