@@ -1,3 +1,7 @@
+/* ============================================================
+   COMBAT
+   ============================================================ */
+
 .combat {
   display: flex;
   flex-direction: column;
@@ -48,7 +52,7 @@
   border-color: #8f6bff;
 }
 
-/* Piles now at bottom of combat */
+/* Piles at bottom */
 .pile {
   background: linear-gradient(180deg, #232833, #1a1e26);
   border: 1px solid #3a4250;
@@ -74,6 +78,23 @@
   font-weight: 700;
   color: #c9a3ff;
   text-shadow: 0 0 12px rgba(201,163,255,.4);
+}
+
+.pile-clickable {
+  cursor: pointer;
+  transition: transform .1s ease, border-color .1s ease, box-shadow .1s ease;
+  font-family: inherit;
+  color: inherit;
+}
+
+.pile-clickable:hover {
+  transform: translateY(-3px);
+  border-color: #8f6bff;
+  box-shadow: 0 8px 20px rgba(143,107,255,.3);
+}
+
+.pile-clickable:active {
+  transform: translateY(0);
 }
 
 .enemies {
@@ -112,19 +133,23 @@
   border-color: #5a4040;
   background: linear-gradient(180deg, #2c2222, #1f1919);
 }
+
 .enemy:hover {
   border-color: #8a5a5a;
   transform: translateY(-2px);
 }
+
 .enemy-selected {
   border-color: #8f6bff;
   box-shadow: 0 0 0 2px rgba(143,107,255,.25), 0 4px 12px rgba(0,0,0,.3);
 }
+
 .enemy-targetable {
   border-color: #ff8f6b;
   box-shadow: 0 0 0 2px rgba(255,143,107,.35), 0 4px 16px rgba(255,143,107,.2);
   animation: pulse 1.2s ease-in-out infinite;
 }
+
 .enemy-dead {
   opacity: .3;
   cursor: default;
@@ -233,7 +258,9 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ---------------- Overlays ---------------- */
+/* ============================================================
+   OVERLAYS
+   ============================================================ */
 
 .overlay {
   position: fixed;
@@ -294,7 +321,9 @@
   padding: 12px 16px;
 }
 
-/* ---------------- Map ---------------- */
+/* ============================================================
+   MAP
+   ============================================================ */
 
 .map-screen {
   display: flex;
@@ -373,7 +402,9 @@
   50%      { box-shadow: 0 0 0 5px rgba(143,107,255,.3), 0 0 22px rgba(143,107,255,.6); }
 }
 
-/* ---------------- Reward / Event / Shop / Rest ---------------- */
+/* ============================================================
+   REWARD / EVENT / SHOP / REST
+   ============================================================ */
 
 .gold { color: #ffd166; font-weight: 600; }
 
