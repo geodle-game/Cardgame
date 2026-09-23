@@ -80,7 +80,7 @@ export const CARDS = {
       { kind: 'damage', amount: 5 },
     ],
   },
-  'anger': {
+  anger: {
     id: 'anger', name: 'Anger', cost: 0, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
     text: 'Deal 6 damage. Add a copy of this into your discard pile.',
@@ -89,11 +89,11 @@ export const CARDS = {
       { kind: 'addCopyToDiscard' },
     ],
   },
-  'flex': {
+  flex: {
     id: 'flex', name: 'Flex', cost: 0, rarity: 'common',
     type: 'skill', target: 'self', destination: 'discard',
     text: 'Gain 2 Strength. Lose it at end of turn.',
-    effects: [{ kind: 'applyStatus', status: 'strength', amount: 2, target: 'self' }],
+    effects: [{ kind: 'applyStatus', status: 'strength', amount: 2 }],
   },
   'true-grit': {
     id: 'true-grit', name: 'True Grit', cost: 1, rarity: 'common',
@@ -116,9 +116,8 @@ export function starterDeck() {
 }
 
 export function randomStartingDeck(rng, size = 10) {
-  // 4-6 strikes, 3-4 defends, rest from common/rare pool.
-  const strikes = 4 + Math.floor(rng() * 3);   // 4-6
-  const defends = 3 + Math.floor(rng() * 2);   // 3-4
+  const strikes = 4 + Math.floor(rng() * 3);
+  const defends = 3 + Math.floor(rng() * 2);
   const rest = size - strikes - defends;
 
   const pool = Object.keys(CARDS).filter(id => {
