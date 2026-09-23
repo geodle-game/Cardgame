@@ -16,6 +16,8 @@ export function render() {
   renderGameOver(app);
 }
 
+// ---------------- Relic pick ----------------
+
 function renderRelicPick(app) {
   const wrap = document.createElement('div');
   wrap.className = 'screen screen-center';
@@ -43,6 +45,8 @@ function renderRelicPick(app) {
   wrap.appendChild(row);
   app.appendChild(wrap);
 }
+
+// ---------------- Deck view ----------------
 
 function renderDeckView(app) {
   const wrap = document.createElement('div');
@@ -78,6 +82,8 @@ function renderDeckView(app) {
 
   app.appendChild(wrap);
 }
+
+// ---------------- Combat ----------------
 
 function renderCombat(app) {
   const c = document.createElement('div');
@@ -187,8 +193,7 @@ function enemyPanel(e) {
       if (state.pendingCardUid) {
         const card = state.hand.find(c => c.uid === state.pendingCardUid);
         if (card) {
-          playCard(card, e.uid);
-          render();
+          doPlayCard(card, el, e.uid);
           return;
         }
       }
@@ -227,21 +232,97 @@ function statusRow(statuses) {
 function cardInHand(card) {
   const def = CARDS[card.defId];
   const el = cardFace(card.defId);
-  el.classList.add(`rarity-${def.rarity || 'common'}`);
   if (!canPlay(card)) el.classList.add('disabled');
   if (state.pendingCardUid === card.uid) el.classList.add('pending');
+
   el.addEventListener('click', () => {
-    selectCardForPlay(card);
-    render();
+    if (!canPlay(card)) return;
+
+    // If targeting, we need a target. If only one enemy alive, auto-target it.
+    if (def.target === 'enemy') {
+      const living = state.enemies.filter(x => x.hp > 0);
+      if (living.length > 1) {
+        selectCardForPlay(card);
+        render();
+        return;
+      }
+      if (living.length === 1) {
+        const targetEl = document.querySelector(`[data-panel="enemy"][data-uid="${living[0].uid}"]`);
+        doPlayCard(card, el, living[0].uid);
+        return;
+      }
+    }
+
+    doPlayCard(card, el, null);
   });
+
   return el;
+}
+
+function doPlayCard(card, sourceEl, targetUid) {
+  const def = CARDS[card.defId];
+  const targetEl = targetUid
+    ? document.querySelector(`[data-panel="enemy"][data-uid="${targetUid}"]`)
+    : document.querySelector(`[data-panel="player"]`);
+
+  // Capture source position for the flight animation.
+  if (sourceEl) {
+    const sRect = sourceEl.getBoundingClientRect();
+    const tRect = targetEl ? targetEl.getBoundingClientRect() : sRect;
+    const dx = (tRect.left + tRect.width / 2) - (sRect.left + sRect.width / 2);
+    const dy = (tRect.top + tRect.height / 2) - (sRect.top + sRect.height / 2);
+    sourceEl.style.setProperty('--fly-x', `${dx}px`);
+    sourceEl.style.setProperty('--fly-y', `${dy}px`);
+    sourceEl.classList.add('playing');
+  }
+
+  // Wait for the flight to be most of the way there, then resolve.
+  setTimeout(() => {
+    playCard(card, targetUid);
+    render();
+
+    // Impact effects
+    if (targetEl) {
+      const r = targetEl.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      spawnSpark(cx, cy);
+
+      const hasDamage = def.effects.some(e => e.kind === 'damage' || e.kind === 'damageEqualToBlock');
+      const hasBlock = def.effects.some(e => e.kind === 'block');
+      const hasHeal = def.effects.some(e => e.kind === 'heal');
+
+      if (hasDamage && targetUid) {
+        shakePanel(targetUid);
+        flashPanel(targetUid);
+        spawnFloat(cx, cy - 20, 'HIT', 'damage');
+      }
+      if (hasBlock) {
+        const p = document.querySelector('[data-panel="player"]');
+        if (p) {
+          const pr = p.getBoundingClientRect();
+          spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+BLOCK', 'block');
+        }
+      }
+      if (hasHeal) {
+        const p = document.querySelector('[data-panel="player"]');
+        if (p) {
+          const pr = p.getBoundingClientRect();
+          spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+HP', 'heal');
+        }
+      }
+    }
+  }, 220);
 }
 
 function cardFace(defId, { disabled = false, small = false } = {}) {
   const def = CARDS[defId];
   const el = document.createElement('div');
-  el.className = 'card' + (disabled ? ' disabled' : '') + (small ? ' card-small' : '');
+  el.className = 'card';
+  if (disabled) el.classList.add('disabled');
+  if (small) el.classList.add('card-small');
   el.classList.add(`rarity-${def.rarity || 'common'}`);
+  el.classList.add(`type-${def.type || 'skill'}`);
   el.innerHTML = `
     <div class="cost">${def.cost}</div>
     <div class="cname">${def.name}</div>
@@ -312,3 +393,33 @@ function renderGameOver(app) {
   el.textContent = 'Game over.';
   app.appendChild(el);
 }
+
+// ---------------- Animation helpers ----------------
+
+export function spawnFloat(x, y, text, kind = 'damage') {
+  const el = document.createElement('div');
+  el.className = `float-text ${kind}`;
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
+
+export function spawnSpark(x, y) {
+  const el = document.createElement('div');
+  el.className = 'hit-spark';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 450);
+}
+
+export function shakePanel(uid) {
+  const sel = uid
+    ? `[data-panel="enemy"][data-uid="${uid}"]`
+    : `[data-panel="player"]`;
+  const el = document.querySelector(sel);
+  if (!el) return;
+  el.classList.add('shake');
+  setTimeout(() => el.classList.remove('
