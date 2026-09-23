@@ -7,7 +7,13 @@ export function hasStatus(entity, status) {
 }
 
 export function outgoingMultiplier(attacker) {
-  return hasStatus(attacker, 'weak') ? 0.75 : 1;
+  let m = 1;
+  if (hasStatus(attacker, 'weak')) m *= 0.75;
+  return m;
+}
+
+export function outgoingFlatBonus(attacker) {
+  return attacker.statuses?.strength || 0;
 }
 
 export function incomingMultiplier(target) {
@@ -16,6 +22,7 @@ export function incomingMultiplier(target) {
 
 export function tickStatuses(entity) {
   for (const k of Object.keys(entity.statuses)) {
+    if (k === 'strength') continue;   // Strength doesn't decay
     entity.statuses[k]--;
     if (entity.statuses[k] <= 0) delete entity.statuses[k];
   }
