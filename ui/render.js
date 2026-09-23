@@ -3,6 +3,9 @@ import {
   claimReward, takeRewardCard, skipRewardCard,
   pickEventChoice, buyShopCard, buyShopHeal,
   restHeal, restUpgrade, newCombat,
+  toggleDeckOverlay, toggleRelicOverlay,
+  toggleDrawOverlay, toggleDiscardOverlay, toggleExhaustOverlay,
+  closeOverlays,
 } from '../systems/state.js';
 import {
   canPlay, playCard, selectCardForPlay, beginEnemyTurn, resolveEnemyTurn,
@@ -18,16 +21,137 @@ export function render() {
   app.innerHTML = '';
 
   switch (state.screen) {
-    case 'relicPick': return renderRelicPick(app);
-    case 'deckView':  return renderDeckView(app);
-    case 'map':       return renderMap(app);
-    case 'combat':    return renderCombat(app);
-    case 'reward':    return renderReward(app);
-    case 'event':     return renderEvent(app);
-    case 'shop':      return renderShop(app);
-    case 'rest':      return renderRest(app);
+    case 'relicPick': renderRelicPick(app); break;
+    case 'deckView':  renderDeckView(app);  break;
+    case 'map':       renderMap(app);       break;
+    case 'combat':    renderCombat(app);    break;
+    case 'reward':    renderReward(app);    break;
+    case 'event':     renderEvent(app);     break;
+    case 'shop':      renderShop(app);      break;
+    case 'rest':      renderRest(app);      break;
+    default:          renderGameOver(app);
   }
-  renderGameOver(app);
+
+  if (state.overlays?.deck)    renderDeckOverlay(app);
+  if (state.overlays?.relics)  renderRelicOverlay(app);
+  if (state.overlays?.draw)    renderCardPileOverlay(app, 'Draw Pile', state.drawPile);
+  if (state.overlays?.discard) renderCardPileOverlay(app, 'Discard Pile', state.discardPile);
+  if (state.overlays?.exhaust) renderCardPileOverlay(app, 'Exhausted', state.exhaustPile);
+}
+
+// ---------------- Top-right buttons ----------------
+
+function topButtons() {
+  const wrap = document.createElement('div');
+  wrap.className = 'top-buttons';
+
+  const deckBtn = document.createElement('button');
+  deckBtn.className = 'icon-btn';
+  deckBtn.title = 'View deck';
+  deckBtn.textContent = `Deck ${state.run.deckIds.length}`;
+  deckBtn.addEventListener('click', () => { toggleDeckOverlay(); render(); });
+  wrap.appendChild(deckBtn);
+
+  if (state.run.relics?.length) {
+    const relicBtn = document.createElement('button');
+    relicBtn.className = 'icon-btn';
+    relicBtn.title = 'View relics';
+    relicBtn.textContent = `Relics ${state.run.relics.length}`;
+    relicBtn.addEventListener('click', () => { toggleRelicOverlay(); render(); });
+    wrap.appendChild(relicBtn);
+  }
+
+  return wrap;
+}
+
+// ---------------- Overlays ----------------
+
+function renderDeckOverlay(app) {
+  const overlay = cardGridOverlay('Your Deck', sortDeckIds(state.run.deckIds));
+  app.appendChild(overlay);
+}
+
+function renderCardPileOverlay(app, title, pile) {
+  const ids = pile.map(c => c.defId);
+  const overlay = cardGridOverlay(title, ids, { emptyMessage: 'Nothing here yet.' });
+  app.appendChild(overlay);
+}
+
+function sortDeckIds(ids) {
+  return ids.slice().sort((a, b) => {
+    const A = CARDS[a], B = CARDS[b];
+    return (A.type || '').localeCompare(B.type || '') || A.name.localeCompare(B.name);
+  });
+}
+
+function cardGridOverlay(title, defIds, { emptyMessage } = {}) {
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { closeOverlays(); render(); }
+  });
+
+  const panel = document.createElement('div');
+  panel.className = 'overlay-panel';
+  panel.appendChild(overlayHeader(title, closeOverlays));
+
+  if (!defIds.length && emptyMessage) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = emptyMessage;
+    panel.appendChild(empty);
+  } else {
+    const grid = document.createElement('div');
+    grid.className = 'deck-grid';
+    for (const id of defIds) grid.appendChild(cardFace(id, { small: true, disabled: true }));
+    panel.appendChild(grid);
+  }
+
+  overlay.appendChild(panel);
+  return overlay;
+}
+
+function renderRelicOverlay(app) {
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { closeOverlays(); render(); }
+  });
+
+  const panel = document.createElement('div');
+  panel.className = 'overlay-panel';
+  panel.appendChild(overlayHeader('Your Relics', closeOverlays));
+
+  const list = document.createElement('div');
+  list.className = 'relic-list';
+  for (const id of state.run.relics) {
+    const r = RELICS[id];
+    const el = document.createElement('div');
+    el.className = 'relic-row-item';
+    el.innerHTML = `
+      <div class="relic-name">${r.name}</div>
+      <div class="relic-text">${r.text}</div>
+    `;
+    list.appendChild(el);
+  }
+  panel.appendChild(list);
+
+  overlay.appendChild(panel);
+  app.appendChild(overlay);
+}
+
+function overlayHeader(title, onClose) {
+  const head = document.createElement('div');
+  head.className = 'overlay-header';
+  const h = document.createElement('h2');
+  h.textContent = title;
+  head.appendChild(h);
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Close';
+  btn.addEventListener('click', () => { onClose(); render(); });
+  head.appendChild(btn);
+  return head;
 }
 
 // ---------------- Relic pick / deck view ----------------
@@ -89,21 +213,19 @@ function renderMap(app) {
   const wrap = document.createElement('div');
   wrap.className = 'screen map-screen';
 
-  // Header
   const header = document.createElement('div');
   header.className = 'map-header';
   header.innerHTML = `
     <div>HP <span class="hp">${state.run.hp}/${state.run.maxHp}</span></div>
     <div>Gold <span class="gold">${state.run.gold}</span></div>
     <div>Floor ${state.run.floor + 1} / ${map.floors}</div>
-    ${state.run.relic ? `<div>Relic <span style="color:#c9a3ff">${RELICS[state.run.relic].name}</span></div>` : ''}
   `;
   wrap.appendChild(header);
+  wrap.appendChild(topButtons());
 
   const board = document.createElement('div');
   board.className = 'map-board';
 
-  // Layout constants
   const rowH = 64;
   const colW = 92;
   const padX = 40;
@@ -115,21 +237,17 @@ function renderMap(app) {
   board.style.width = width + 'px';
   board.style.height = height + 'px';
 
-  // Position nodes
   const pos = (n) => ({
     x: padX + n.col * colW + colW / 2,
     y: height - (padY + n.floor * rowH + rowH / 2),
   });
 
-  // Reachability
-  const currentNode = state.run.currentNodeId
-    ? getNode(map, state.run.currentNodeId) : null;
+  const currentNode = state.run.currentNodeId ? getNode(map, state.run.currentNodeId) : null;
   const reachableIds = currentNode
     ? reachableFrom(map, currentNode.id).map(n => n.id)
     : startingNodes(map).map(n => n.id);
   const reachSet = new Set(reachableIds);
 
-  // Draw edges first
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'map-edges');
   svg.setAttribute('width', width);
@@ -142,12 +260,9 @@ function renderMap(app) {
       const b = pos(t);
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
-      // slight curve
       const d = `M ${a.x} ${a.y} Q ${mx} ${a.y} ${b.x} ${b.y}`;
       path.setAttribute('d', d);
-      path.setAttribute('stroke',
-        reachSet.has(nextId) ? '#8f6bff' : '#2a2f3a');
+      path.setAttribute('stroke', reachSet.has(nextId) ? '#8f6bff' : '#2a2f3a');
       path.setAttribute('stroke-width', reachSet.has(nextId) ? 2.5 : 1.5);
       path.setAttribute('fill', 'none');
       path.setAttribute('stroke-linecap', 'round');
@@ -156,7 +271,6 @@ function renderMap(app) {
   }
   board.appendChild(svg);
 
-  // Draw nodes
   for (const n of map.nodes) {
     const { x, y } = pos(n);
     const info = NODE_TYPES[n.type];
@@ -176,7 +290,6 @@ function renderMap(app) {
     } else {
       el.classList.add('map-node-locked');
     }
-
     board.appendChild(el);
   }
 
@@ -184,7 +297,7 @@ function renderMap(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Reward ----------------
+// ---------------- Reward / Event / Shop / Rest ----------------
 
 function renderReward(app) {
   const r = state.reward;
@@ -227,11 +340,8 @@ function renderReward(app) {
   btn.textContent = 'Continue';
   btn.addEventListener('click', () => { claimReward(); render(); });
   wrap.appendChild(btn);
-
   app.appendChild(wrap);
 }
-
-// ---------------- Event ----------------
 
 function renderEvent(app) {
   const ev = state.event.data;
@@ -259,8 +369,6 @@ function renderEvent(app) {
   wrap.appendChild(choices);
   app.appendChild(wrap);
 }
-
-// ---------------- Shop ----------------
 
 function renderShop(app) {
   const s = state.shop;
@@ -315,11 +423,8 @@ function renderShop(app) {
   leave.textContent = 'Leave';
   leave.addEventListener('click', () => { backToMap(); render(); });
   wrap.appendChild(leave);
-
   app.appendChild(wrap);
 }
-
-// ---------------- Rest ----------------
 
 function renderRest(app) {
   const wrap = document.createElement('div');
@@ -336,10 +441,9 @@ function renderRest(app) {
 
   const medBtn = document.createElement('button');
   medBtn.className = 'btn';
-  medBtn.textContent = 'Meditate — heal 10% (upgrade placeholder)';
+  medBtn.textContent = 'Meditate — heal 10%';
   medBtn.addEventListener('click', () => { restUpgrade(); render(); });
   wrap.appendChild(medBtn);
-
   app.appendChild(wrap);
 }
 
@@ -349,10 +453,10 @@ function renderCombat(app) {
   const c = document.createElement('div');
   c.className = 'combat';
 
+  c.appendChild(topButtons());
+
   const top = document.createElement('div');
   top.className = 'top';
-
-  top.appendChild(pileEl('Draw', state.drawPile.length, 'left'));
 
   const mid = document.createElement('div');
   mid.className = 'top-mid';
@@ -362,9 +466,7 @@ function renderCombat(app) {
   enemies.className = 'enemies';
   for (const e of state.enemies) enemies.appendChild(enemyPanel(e));
   mid.appendChild(enemies);
-
   top.appendChild(mid);
-  top.appendChild(pileEl('Discard', state.discardPile.length, 'right'));
   c.appendChild(top);
 
   if (state.pendingCardUid) {
@@ -384,26 +486,19 @@ function renderCombat(app) {
   c.appendChild(hand);
 
   c.appendChild(bottomBar());
-  c.appendChild(logEl());
 
   if (state.over) c.appendChild(endBanner());
-  if (state.run.relic) c.appendChild(relicChip());
-
   app.appendChild(c);
 }
 
-function relicChip() {
-  const r = RELICS[state.run.relic];
-  const el = document.createElement('div');
-  el.className = 'relic-chip';
-  el.innerHTML = `<div class="relic-name">${r.name}</div><div class="relic-text">${r.text}</div>`;
-  return el;
-}
-
-function pileEl(label, count, side) {
-  const el = document.createElement('div');
-  el.className = `pile pile-${side}`;
+function pileEl(label, count, onClick) {
+  const el = document.createElement('button');
+  el.className = 'pile pile-bottom';
   el.innerHTML = `<div class="pile-label">${label}</div><div class="pile-count">${count}</div>`;
+  if (onClick) {
+    el.classList.add('pile-clickable');
+    el.addEventListener('click', onClick);
+  }
   return el;
 }
 
@@ -547,6 +642,7 @@ function cardFace(defId, { disabled = false, small = false } = {}) {
   if (small) el.classList.add('card-small');
   el.classList.add(`rarity-${def.rarity || 'common'}`);
   el.classList.add(`type-${def.type || 'skill'}`);
+  if (def.retain) el.classList.add('card-retain');
   el.innerHTML = `
     <div class="cost">${def.cost}</div>
     <div class="cname">${def.name}</div>
@@ -558,6 +654,11 @@ function cardFace(defId, { disabled = false, small = false } = {}) {
 function bottomBar() {
   const bar = document.createElement('div');
   bar.className = 'bar';
+
+  bar.appendChild(pileEl('Draw', state.drawPile.length, () => {
+    toggleDrawOverlay(); render();
+  }));
+
   const btn = document.createElement('button');
   btn.className = 'btn';
   btn.textContent = 'End Turn';
@@ -570,18 +671,17 @@ function bottomBar() {
   });
   bar.appendChild(btn);
 
-  const piles = document.createElement('span');
-  piles.className = 'piles';
-  piles.textContent = `Draw ${state.drawPile.length} · Discard ${state.discardPile.length} · Exhaust ${state.exhaustPile.length}`;
-  bar.appendChild(piles);
-  return bar;
-}
+  bar.appendChild(pileEl('Discard', state.discardPile.length, () => {
+    toggleDiscardOverlay(); render();
+  }));
 
-function logEl() {
-  const el = document.createElement('div');
-  el.className = 'log';
-  el.textContent = state.log.slice(-8).join('\n');
-  return el;
+  if (state.exhaustPile.length) {
+    bar.appendChild(pileEl('Exhaust', state.exhaustPile.length, () => {
+      toggleExhaustOverlay(); render();
+    }));
+  }
+
+  return bar;
 }
 
 function endBanner() {
@@ -593,10 +693,7 @@ function endBanner() {
   btn.className = 'btn';
   if (state.result === 'win') {
     btn.textContent = 'Rewards';
-    btn.addEventListener('click', () => {
-      state.screen = 'reward';
-      render();
-    });
+    btn.addEventListener('click', () => { state.screen = 'reward'; render(); });
   } else {
     btn.textContent = 'New Run';
     btn.addEventListener('click', () => { newRun(); render(); });
