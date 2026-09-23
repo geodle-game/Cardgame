@@ -3,50 +3,109 @@
   gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
-  align-items: center;
+  align-items: flex-end;
   flex: 1;
+  perspective: 800px;
 }
 
 .card {
   width: 130px;
-  min-height: 170px;
-  background: #1e2229;
-  border: 1px solid #333a45;
-  border-radius: 8px;
+  min-height: 180px;
+  background: linear-gradient(180deg, #2a2f3a, #1e2229);
+  border: 1px solid #4a5262;
+  border-radius: 10px;
   padding: 10px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: transform .08s ease, border-color .08s ease;
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  animation: cardIn .25s ease-out backwards;
+  position: relative;
 }
 
-.card:hover {
-  transform: translateY(-6px);
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), transparent 40%);
+}
+
+.card:hover:not(.disabled) {
+  transform: translateY(-10px) scale(1.04);
   border-color: #8f6bff;
+  box-shadow: 0 12px 24px rgba(143,107,255,.35);
+  z-index: 5;
 }
 
 .card.disabled {
   opacity: .45;
   cursor: not-allowed;
+  filter: saturate(.4);
 }
 
 .card.disabled:hover {
   transform: none;
-  border-color: #333a45;
+  border-color: #4a5262;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
+}
+
+/* Card rarity tints */
+.card.rarity-starter { border-color: #4a5262; }
+.card.rarity-common  { border-color: #7a8296; background: linear-gradient(180deg, #323847, #232830); }
+.card.rarity-rare    { border-color: #6f8fff; background: linear-gradient(180deg, #2a3350, #1d2438); box-shadow: 0 4px 14px rgba(111,143,255,.25); }
+
+.card.pending {
+  border-color: #ff8f6b;
+  box-shadow: 0 0 0 2px rgba(255,143,107,.35), 0 12px 24px rgba(255,143,107,.3);
+  transform: translateY(-10px) scale(1.04);
+}
+
+.card.card-small {
+  width: 110px;
+  min-height: 150px;
+  animation: none;
+}
+
+.card.played {
+  animation: cardPlay .35s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(30px) rotate(-6deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(0); }
+}
+
+@keyframes cardPlay {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(.4) translateY(60px); opacity: 0; }
 }
 
 .cost {
-  background: #ffd166;
+  background: radial-gradient(circle at 30% 30%, #ffe699, #ffb800);
   color: #14161a;
   font-weight: 700;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   font-size: 13px;
+  box-shadow: 0 2px 6px rgba(255,184,0,.4);
 }
 
-.cname { font-weight: 600; }
-.ctext { color: #8b93a1; font-size: 13px; }
+.cname {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: .01em;
+}
+
+.ctext {
+  color: #b8bdc7;
+  font-size: 12px;
+  line-height: 1.4;
+}
