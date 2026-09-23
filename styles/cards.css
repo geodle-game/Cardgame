@@ -21,9 +21,20 @@
   transition: transform .08s ease, border-color .08s ease;
 }
 
-.card:hover { transform: translateY(-6px); border-color: #8f6bff; }
-.card.disabled { opacity: .45; cursor: not-allowed; }
-.card.disabled:hover { transform: none; border-color: #333a45; }
+.card:hover {
+  transform: translateY(-6px);
+  border-color: #8f6bff;
+}
+
+.card.disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.card.disabled:hover {
+  transform: none;
+  border-color: #333a45;
+}
 
 .cost {
   background: #ffd166;
