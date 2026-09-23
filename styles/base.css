@@ -22,6 +22,7 @@ html, body {
 .energy { color: #ffd166; }
 .intent { color: #8b93a1; font-size: 13px; }
 .muted { color: #8b93a1; font-size: 13px; }
+.gold { color: #ffd166; font-weight: 600; }
 
 .banner {
   text-align: center;
@@ -38,18 +39,6 @@ html, body {
 @keyframes bannerIn {
   from { opacity: 0; transform: scale(.85); }
   to   { opacity: 1; transform: scale(1); }
-}
-
-.log {
-  background: #0f1114;
-  border: 1px solid #333a45;
-  border-radius: 8px;
-  padding: 8px;
-  height: 110px;
-  overflow-y: auto;
-  font-size: 13px;
-  color: #8b93a1;
-  white-space: pre-line;
 }
 
 .screen { padding: 24px; }
@@ -96,7 +85,12 @@ html, body {
   color: #c9a3ff;
   letter-spacing: .02em;
 }
-.relic-text { color: #b8bdc7; font-size: 13px; line-height: 1.5; }
+
+.relic-text {
+  color: #b8bdc7;
+  font-size: 13px;
+  line-height: 1.5;
+}
 
 .deck-grid {
   display: flex;
@@ -117,6 +111,7 @@ html, body {
   cursor: pointer;
   box-shadow: 0 2px 0 #5433c9, 0 4px 12px rgba(143,107,255,.3);
   transition: transform .08s ease, box-shadow .08s ease, filter .08s ease;
+  font-family: inherit;
 }
 
 .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
@@ -173,7 +168,7 @@ html, body {
   100% { background-color: transparent; }
 }
 
-/* Hit spark — small radial burst at impact point */
+/* Hit spark */
 .hit-spark {
   position: fixed;
   width: 60px;
