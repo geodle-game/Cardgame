@@ -1,17 +1,59 @@
-.top { display: flex; justify-content: space-between; gap: 16px; }
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.enemies {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 
 .panel {
   background: #1e2229;
   border: 1px solid #333a45;
   border-radius: 8px;
   padding: 14px;
-  min-width: 200px;
+  min-width: 180px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.bar { display: flex; align-items: center; gap: 16px; }
+.panel-name { font-weight: 600; margin-bottom: 4px; }
+
+.enemy { cursor: pointer; transition: border-color .1s ease; }
+.enemy:hover { border-color: #4a5464; }
+.enemy-selected { border-color: #8f6bff; }
+.enemy-dead {
+  opacity: .35;
+  cursor: default;
+  pointer-events: none;
+}
+
+.statuses {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.status {
+  background: #262b34;
+  border: 1px solid #333a45;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  color: #c9a3ff;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 
 .btn {
   background: #8f6bff;
@@ -24,18 +66,11 @@
   cursor: pointer;
 }
 
-.btn:disabled { background: #262b34; color: #8b93a1; cursor: not-allowed; }
+.btn:hover { filter: brightness(1.1); }
+.btn:disabled {
+  background: #262b34;
+  color: #8b93a1;
+  cursor: not-allowed;
+}
 
 .piles { color: #8b93a1; font-size: 13px; }
-
-.log {
-  background: #0f1114;
-  border: 1px solid #333a45;
-  border-radius: 8px;
-  padding: 8px;
-  height: 90px;
-  overflow-y: auto;
-  font-size: 13px;
-  color: #8b93a1;
-  white-space: pre-line;
-}
