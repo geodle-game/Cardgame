@@ -179,7 +179,7 @@ export const CARDS = {
   },
 
   // ================================================================
-  // EXHAUST PILE GAMBLERS (new)
+  // EXHAUST PILE GAMBLERS
   // ================================================================
   'grave-robber': {
     id: 'grave-robber', name: 'Grave Robber', cost: 1, rarity: 'common',
@@ -203,31 +203,36 @@ export const CARDS = {
   // ================================================================
   // DUPLICATORS
   // ================================================================
+  // Forked Strike: original to discard, one copy to discard, one copy to draw.
+  // Net +2 per play, but the copies themselves cycle through discard normally.
   'forked-strike': {
     id: 'forked-strike', name: 'Forked Strike', cost: 1, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'draw',
+    type: 'attack', target: 'enemy', destination: 'discard',
     text: 'Deal 7 damage. Put a copy of this card in your discard pile and a copy in your draw pile.',
     effects: [
       { kind: 'damage', amount: 7 },
-      { kind: 'duplicateToPiles' },
+      { kind: 'duplicateToDiscard' },
+      { kind: 'duplicateToDraw' },
     ],
   },
+  // Echo Shield: original to discard, one copy to draw. Net +1 per play,
+  // but the copy is what cycles back so it doesn't stack infinitely.
   'echo-shield': {
     id: 'echo-shield', name: 'Echo Shield', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'draw',
-    text: 'Gain 7 Block. Put a copy of this card in your discard pile and a copy in your draw pile.',
+    type: 'skill', target: 'self', destination: 'discard',
+    text: 'Gain 7 Block. Put a copy of this card in your draw pile.',
     effects: [
       { kind: 'block', amount: 7 },
-      { kind: 'duplicateToPiles' },
+      { kind: 'duplicateToDraw' },
     ],
   },
+  // Rebound: original to draw, no copy. Self-cycling, returns to hand next draw.
   rebound: {
     id: 'rebound', name: 'Rebound', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'draw',
-    text: 'Deal 9 damage. Put a copy of this card in your discard pile.',
+    text: 'Deal 9 damage. Return this card to your draw pile.',
     effects: [
       { kind: 'damage', amount: 9 },
-      { kind: 'duplicateToDiscard' },
     ],
   },
 
