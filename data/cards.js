@@ -84,7 +84,7 @@ export const CARDS = {
   },
   anger: {
     id: 'anger', name: 'Anger', cost: 0, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'draw', retain: true,
+    type: 'attack', target: 'enemy', destination: 'discard', retain: true,
     text: 'Deal 6 damage. Retain.',
     effects: [{ kind: 'damage', amount: 6 }],
   },
@@ -201,39 +201,25 @@ export const CARDS = {
   },
 
   // ================================================================
-  // DUPLICATORS
+  // RETAIN CARDS (were duplicators)
   // ================================================================
-  // Forked Strike: original to discard, one copy to discard, one copy to draw.
-  // Net +2 per play, but the copies themselves cycle through discard normally.
   'forked-strike': {
     id: 'forked-strike', name: 'Forked Strike', cost: 1, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 7 damage. Put a copy of this card in your discard pile and a copy in your draw pile.',
-    effects: [
-      { kind: 'damage', amount: 7 },
-      { kind: 'duplicateToDiscard' },
-      { kind: 'duplicateToDraw' },
-    ],
+    type: 'attack', target: 'enemy', destination: 'discard', retain: true,
+    text: 'Deal 7 damage. Retain.',
+    effects: [{ kind: 'damage', amount: 7 }],
   },
-  // Echo Shield: original to discard, one copy to draw. Net +1 per play,
-  // but the copy is what cycles back so it doesn't stack infinitely.
   'echo-shield': {
     id: 'echo-shield', name: 'Echo Shield', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Gain 7 Block. Put a copy of this card in your draw pile.',
-    effects: [
-      { kind: 'block', amount: 7 },
-      { kind: 'duplicateToDraw' },
-    ],
+    type: 'skill', target: 'self', destination: 'discard', retain: true,
+    text: 'Gain 7 Block. Retain.',
+    effects: [{ kind: 'block', amount: 7 }],
   },
-  // Rebound: original to draw, no copy. Self-cycling, returns to hand next draw.
   rebound: {
     id: 'rebound', name: 'Rebound', cost: 1, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'draw',
-    text: 'Deal 9 damage. Return this card to your draw pile.',
-    effects: [
-      { kind: 'damage', amount: 9 },
-    ],
+    type: 'attack', target: 'enemy', destination: 'discard', retain: true,
+    text: 'Deal 9 damage. Retain.',
+    effects: [{ kind: 'damage', amount: 9 }],
   },
 
   // ================================================================
@@ -403,6 +389,13 @@ export const CARDS = {
   // ================================================================
   // RARE ATTACKS / SKILLS
   // ================================================================
+  'last-stand': {
+    id: 'last-stand', name: 'Last Stand', cost: 1, rarity: 'rare',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    endsTurn: true,
+    text: 'End your turn. Deal 6 damage plus 1 per card in your hand.',
+    effects: [{ kind: 'lastStand', base: 6 }],
+  },
   reaper: {
     id: 'reaper', name: 'Reaper', cost: 2, rarity: 'rare',
     type: 'attack', target: 'all-enemies', destination: 'exhaust',
