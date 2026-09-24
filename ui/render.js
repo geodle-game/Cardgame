@@ -589,6 +589,8 @@ function renderCombat(app) {
   const img = document.createElement('img');
   img.src = banner;
   img.alt = '';
+  img.onerror = () => console.warn('[banner] failed to load:', banner);
+  img.onload = () => console.log('[banner] loaded:', banner);
   band.appendChild(img);
   c.appendChild(band);
 
