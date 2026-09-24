@@ -586,7 +586,10 @@ function renderCombat(app) {
 
   const band = document.createElement('div');
   band.className = 'combat-band';
-  band.style.backgroundImage = `url('${banner}')`;
+  const img = document.createElement('img');
+  img.src = banner;
+  img.alt = '';
+  band.appendChild(img);
   c.appendChild(band);
 
   c.appendChild(topButtons());
@@ -906,13 +909,11 @@ export function spawnSpark(x, y) {
   setTimeout(() => el.remove(), 450);
 }
 
-// Big slanted shield that appears beside the player panel when they gain Block.
 export function spawnBlockEffect(playerEl) {
   const r = playerEl.getBoundingClientRect();
   const img = document.createElement('img');
   img.src = 'assets/block.png';
   img.className = 'block-effect';
-  // Appears to the right of the player panel, between player and enemies.
   img.style.left = (r.right + 30) + 'px';
   img.style.top  = (r.top + r.height / 2) + 'px';
   document.body.appendChild(img);
