@@ -14,8 +14,8 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
-  margin-top: auto;
-  margin-bottom: auto;
+  margin-top: 25vh;
+  padding-bottom: 16px;
 }
 
 .top-mid {
@@ -445,7 +445,7 @@
 
 .map-node-reachable:hover {
   transform: scale(1.15);
-  box-shadow: 0 0 0 4px rgba(143,107,255,.35), 0 0 24px rgba(143,107,255,.6);
+  box-shadow: 0 0 0 4px rgba(143,107,255,.35), 0 0 0 24px rgba(143,107,255,.6);
 }
 
 .map-node-current {
