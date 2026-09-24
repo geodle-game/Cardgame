@@ -17,7 +17,6 @@ import { RELICS } from '../data/relics.js';
 import { ENEMY_CARDS } from '../data/enemy-cards.js';
 import { NODE_TYPES } from '../data/maps.js';
 import { getNode, reachableFrom, startingNodes } from '../systems/map.js';
-import { bannerForCombat } from '../data/banners.js';
 
 export function render() {
   const app = document.getElementById('app');
@@ -582,17 +581,17 @@ function renderCombat(app) {
   const c = document.createElement('div');
   c.className = 'combat';
 
-  const banner = bannerForCombat(state.combatKind, state.rng);
-
-  const band = document.createElement('div');
-  band.className = 'combat-band';
-  const img = document.createElement('img');
-  img.src = banner;
-  img.alt = '';
-  img.onerror = () => console.warn('[banner] failed to load:', banner);
-  img.onload = () => console.log('[banner] loaded:', banner);
-  band.appendChild(img);
-  c.appendChild(band);
+  // Banner was picked once at combat start (state.combatBanner) and
+  // never changes until the next fight. Same image on every re-render.
+  if (state.combatBanner) {
+    const band = document.createElement('div');
+    band.className = 'combat-band';
+    const img = document.createElement('img');
+    img.src = state.combatBanner;
+    img.alt = '';
+    band.appendChild(img);
+    c.appendChild(band);
+  }
 
   c.appendChild(topButtons());
 
