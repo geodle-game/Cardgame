@@ -8,6 +8,7 @@ import { generateMap, getNode, reachableFrom, startingNodes } from './map.js';
 import { rollCoins, rollCardChoices, rollActTransition } from './rewards.js';
 import { randomEvent } from '../data/events.js';
 import { rollShop } from '../data/shop.js';
+import { bannerForCombat } from '../data/banners.js';
 
 export const state = {
   screen: 'relicPick',
@@ -39,6 +40,7 @@ export const state = {
   log: [],
   relicChoices: [],
   combatKind: 'monster',
+  combatBanner: null,
 };
 
 export function cardDef(card) {
@@ -91,6 +93,7 @@ export function newRun(seed = Date.now()) {
   state.over = false;
   state.result = null;
   state.overlays = emptyOverlays();
+  state.combatBanner = null;
 }
 
 function pickRelicChoices() {
@@ -224,6 +227,9 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   state.combatKind = sourceKind;
   state.lastEncounterId = encounterId;
 
+  // Pick the banner ONCE at combat start. It won't change until the next fight.
+  state.combatBanner = bannerForCombat(sourceKind, state.rng);
+
   const scale = actScaling(state.run.act);
   const ids = ENCOUNTERS[encounterId];
   state.enemies = ids.map((id, i) => {
@@ -302,7 +308,6 @@ export function endCombat(win) {
   }
 }
 
-// Called when the player clicks Continue after the act 1 boss.
 export function nextAct() {
   const healAmount = Math.floor(state.run.maxHp * 0.3);
   const hpBefore = state.run.hp;
