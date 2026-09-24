@@ -28,8 +28,8 @@ export const CARDS = {
       { kind: 'applyStatus', status: 'vulnerable', amount: 2 },
     ],
   },
-  neutral: {
-    id: 'neutral', name: 'Neutralize', cost: 0, rarity: 'starter',
+  neutralize: {
+    id: 'neutralize', name: 'Neutralize', cost: 0, rarity: 'starter',
     type: 'attack', target: 'enemy', destination: 'draw',
     text: 'Deal 3 damage. Apply 1 Weak.',
     effects: [
@@ -118,7 +118,7 @@ export const CARDS = {
       { kind: 'damageRandom', amount: 3 },
     ],
   },
-  'headbutt': {
+  headbutt: {
     id: 'headbutt', name: 'Headbutt', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
     text: 'Deal 9 damage. Put a random card from your discard pile on top of your draw pile.',
@@ -180,7 +180,7 @@ export const CARDS = {
     text: 'Gain 5 Block.',
     effects: [{ kind: 'block', amount: 5 }],
   },
-  'warcry': {
+  warcry: {
     id: 'warcry', name: 'Warcry', cost: 0, rarity: 'common',
     type: 'skill', target: 'self', destination: 'exhaust',
     text: 'Draw 2. Put a card from your hand on top of your draw pile.',
@@ -266,13 +266,13 @@ export const CARDS = {
     text: 'Each turn, gain 2 Strength.',
     effects: [{ kind: 'gainStatusPerTurn', status: 'strength', amount: 2 }],
   },
-  'reaper': {
+  reaper: {
     id: 'reaper', name: 'Reaper', cost: 2, rarity: 'rare',
     type: 'attack', target: 'all-enemies', destination: 'exhaust',
     text: 'Deal 4 damage to all enemies. Heal HP equal to unblocked damage dealt.',
     effects: [{ kind: 'reaper', amount: 4 }],
   },
-  'offering': {
+  offering: {
     id: 'offering', name: 'Offering', cost: 0, rarity: 'rare',
     type: 'skill', target: 'self', destination: 'exhaust',
     text: 'Lose 6 HP. Gain 2 Energy. Draw 3.',
@@ -282,7 +282,7 @@ export const CARDS = {
       { kind: 'draw', amount: 3 },
     ],
   },
-  'berserk': {
+  berserk: {
     id: 'berserk', name: 'Berserk', cost: 0, rarity: 'rare',
     type: 'power', target: 'self', destination: 'exhaust',
     text: 'Gain 1 Energy each turn. At the start of each turn, take 2 damage.',
@@ -294,20 +294,20 @@ export const CARDS = {
     text: 'This turn, your next Attack is played twice.',
     effects: [{ kind: 'doubleTapNextAttack' }],
   },
-  'juggernaut': {
+  juggernaut: {
     id: 'juggernaut', name: 'Juggernaut', cost: 2, rarity: 'rare',
     type: 'power', target: 'self', destination: 'exhaust',
     text: 'Whenever you gain Block, deal 5 damage to a random enemy.',
     effects: [{ kind: 'juggernaut', amount: 5 }],
   },
-  'rupture': {
+  rupture: {
     id: 'rupture', name: 'Rupture', cost: 1, rarity: 'rare',
     type: 'power', target: 'self', destination: 'exhaust',
     text: 'Whenever you lose HP from a card, gain 1 Strength.',
     effects: [{ kind: 'rupture' }],
   },
 
-  // -------- Statuses / curses (not in reward pool) --------
+  // -------- Statuses / curses --------
   dazed: {
     id: 'dazed', name: 'Dazed', cost: 999, rarity: 'status',
     type: 'status', target: 'none', destination: 'draw',
@@ -329,33 +329,43 @@ export const CARDS = {
     text: 'Unplayable. At the end of your turn, take 2 damage.',
     effects: [],
   },
+  slimed: {
+    id: 'slimed', name: 'Slimed', cost: 1, rarity: 'status',
+    type: 'status', target: 'none', destination: 'exhaust',
+    text: 'Play: lose 1 Energy. Exhaust.',
+    effects: [{ kind: 'loseEnergy', amount: 1 }],
+  },
 };
 
 export function starterDeck() {
   return [
     ...Array(3).fill('strike'),
-    ...Array(3).fill('defend'),
+    ...Array(2).fill('defend'),
     'bash',
-    'neutral',
+    'neutralize',
+    'iron-wave',
   ];
 }
 
 export function randomStartingDeck(rng, size = 8) {
-  const strikes = 3 + Math.floor(rng() * 2);
-  const defends = 3 + Math.floor(rng() * 2);
-  const rest = size - strikes - defends;
+  // Fixed basics: 3 Strike, 2 Defend.
+  // Remaining slots filled with random commons/rares, 75% common / 25% rare.
+  const strikes = 3;
+  const defends = 2;
+  const rest = size - strikes - defends;   // 3 slots
 
-  const pool = Object.keys(CARDS).filter(id => {
-    const c = CARDS[id];
-    return c.rarity === 'common' || c.rarity === 'rare';
-  });
+  const commons = Object.keys(CARDS).filter(id => CARDS[id].rarity === 'common');
+  const rares   = Object.keys(CARDS).filter(id => CARDS[id].rarity === 'rare');
 
   const ids = [
     ...Array(strikes).fill('strike'),
     ...Array(defends).fill('defend'),
   ];
 
-  for (let i = 0; i < rest && pool.length; i++) {
+  for (let i = 0; i < rest; i++) {
+    const useCommon = rng() < 0.75;
+    const pool = useCommon ? commons : rares;
+    if (!pool.length) continue;
     const idx = Math.floor(rng() * pool.length);
     ids.push(pool.splice(idx, 1)[0]);
   }
