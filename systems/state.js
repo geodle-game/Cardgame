@@ -50,6 +50,10 @@ export function pushLog(msg) {
   if (state.log.length > 60) state.log.shift();
 }
 
+function emptyOverlays() {
+  return { deck: false, relics: false, draw: false, discard: false, exhaust: false };
+}
+
 // ---------- Run setup ----------
 
 export function newRun(seed = Date.now()) {
@@ -74,10 +78,6 @@ export function newRun(seed = Date.now()) {
   state.overlays = emptyOverlays();
 }
 
-function emptyOverlays() {
-  return { deck: false, relics: false, draw: false, discard: false, exhaust: false };
-}
-
 function pickRelicChoices() {
   const pool = Object.keys(RELICS);
   const out = [];
@@ -92,7 +92,7 @@ function pickRelicChoices() {
 export function chooseRelic(relicId) {
   state.run.relic = relicId;
   state.run.relics = [relicId];
-  state.run.deckIds = randomStartingDeck(state.rng, 10);
+  state.run.deckIds = randomStartingDeck(state.rng, 8);
   state.screen = 'deckView';
 }
 
@@ -111,7 +111,7 @@ export function closeOverlays() {
 
 function openOnly(key) {
   state.overlays = emptyOverlays();
-  state.overlays[key] = true;
+  if (key) state.overlays[key] = true;
 }
 
 export function toggleDeckOverlay()    { openOnly(state.overlays.deck    ? null : 'deck'); }
@@ -174,11 +174,11 @@ function pickEncounter(kind) {
   const keys = Object.keys(ENCOUNTERS);
   let pool;
   if (kind === 'monster') {
-    pool = keys.filter(k => k.startsWith('act1-') && !k.includes('elite') && k !== 'act1-boss');
+    pool = keys.filter(k => k.startsWith('act1-') && !k.includes('elite') && !k.includes('boss'));
   } else if (kind === 'elite') {
     pool = keys.filter(k => k.includes('elite'));
   } else {
-    pool = ['act1-boss'];
+    pool = keys.filter(k => k.includes('boss'));
   }
   return pool[Math.floor(state.rng() * pool.length)];
 }
@@ -202,6 +202,7 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
     statuses: {},
     nextTurnEnergy: 0,
     perTurnStatuses: [],
+    perTurnHooks: [],
   };
   state.combatKind = sourceKind;
 
@@ -273,6 +274,7 @@ export function rollIntent(enemy) {
   enemy.intentCard = card;
 }
 
+// Retained cards carry over. Then we draw 5 MORE, on top.
 export function startPlayerTurn(isFirstTurn = false) {
   state.turn = 'player';
   if (!isFirstTurn) state.player.block = 0;
@@ -308,7 +310,7 @@ export function skipRewardCard() {
   state.reward.taken = true;
 }
 
-// ---------- Event ----------
+// ---------- Event / Shop / Rest (unchanged) ----------
 
 export function pickEventChoice(index) {
   if (!state.event) return;
@@ -333,8 +335,6 @@ function applyMetaEffect(eff) {
   }
 }
 
-// ---------- Shop ----------
-
 export function buyShopCard(index) {
   if (!state.shop) return;
   const item = state.shop.items[index];
@@ -353,8 +353,6 @@ export function buyShopHeal() {
   state.run.hp = Math.min(state.run.maxHp, state.run.hp + 25);
   pushLog('Healed 25 HP.');
 }
-
-// ---------- Rest ----------
 
 export function restHeal() {
   const amount = Math.floor(state.run.maxHp * 0.3);
