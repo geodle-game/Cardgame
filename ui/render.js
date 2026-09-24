@@ -43,6 +43,23 @@ export function render() {
   if (state.overlays?.exhaust) renderCardPileOverlay(app, 'Exhausted', state.exhaustPile);
 }
 
+// ---------------- Gold coin stack helper ----------------
+
+// Returns an HTML string for the coin stack based on how many coins you have.
+// 0-9 → 1 coin, 10-49 → 2 coins, 50-99 → 3, 100-249 → 4, 250+ → 5.
+function coinStackClass(gold) {
+  if (gold >= 250) return 'coin-5';
+  if (gold >= 100) return 'coin-4';
+  if (gold >= 50)  return 'coin-3';
+  if (gold >= 10)  return 'coin-2';
+  return 'coin-1';
+}
+
+function goldDisplay(gold) {
+  const cls = coinStackClass(gold);
+  return `<span class="gold-display"><span class="gold-coin ${cls}"></span><span class="gold">${gold}</span></span>`;
+}
+
 // ---------------- Top-right buttons ----------------
 
 function topButtons() {
@@ -222,7 +239,7 @@ function renderMap(app) {
   header.innerHTML = `
     <div>Act ${state.run.act}</div>
     <div>HP <span class="hp">${state.run.hp}/${state.run.maxHp}</span></div>
-    <div>Gold <span class="gold">${state.run.gold}</span></div>
+    <div>${goldDisplay(state.run.gold)}</div>
     <div>Floor ${state.run.floor + 1} / ${map.floors}</div>
   `;
   wrap.appendChild(header);
@@ -314,8 +331,7 @@ function renderReward(app) {
   wrap.appendChild(h);
 
   const gold = document.createElement('p');
-  gold.className = 'gold';
-  gold.textContent = `+${r.coins} gold`;
+  gold.innerHTML = goldDisplay(r.coins) + ' gold';
   wrap.appendChild(gold);
 
   if (!r.taken) {
@@ -359,7 +375,6 @@ function renderActReward(app) {
   h.textContent = `Act ${state.run.act}`;
   wrap.appendChild(h);
 
-  // Heal line (from nextAct)
   if (r.healAmount != null) {
     const heal = document.createElement('p');
     heal.className = 'heal';
@@ -368,8 +383,7 @@ function renderActReward(app) {
   }
 
   const gold = document.createElement('p');
-  gold.className = 'gold';
-  gold.textContent = `+${r.coins} gold`;
+  gold.innerHTML = goldDisplay(r.coins) + ' gold';
   wrap.appendChild(gold);
 
   if (!r.relicTaken) {
@@ -443,7 +457,7 @@ function renderVictory(app) {
   stats.innerHTML = `
     <div>Acts cleared: <strong>${state.run.act}</strong></div>
     <div>Final HP: <strong class="hp">${state.run.hp} / ${state.run.maxHp}</strong></div>
-    <div>Gold: <strong class="gold">${state.run.gold}</strong></div>
+    <div>Gold: <strong>${goldDisplay(state.run.gold)}</strong></div>
     <div>Deck size: <strong>${state.run.deckIds.length}</strong></div>
     <div>Relics: <strong style="color:#c9a3ff">${state.run.relics.length}</strong></div>
   `;
@@ -497,8 +511,7 @@ function renderShop(app) {
   wrap.appendChild(h);
 
   const gold = document.createElement('p');
-  gold.className = 'gold';
-  gold.textContent = `Gold: ${state.run.gold}`;
+  gold.innerHTML = 'Gold: ' + goldDisplay(state.run.gold);
   wrap.appendChild(gold);
 
   const grid = document.createElement('div');
@@ -604,8 +617,10 @@ function renderCombat(app) {
 
   c.appendChild(bottomBar());
 
-  if (state.over) c.appendChild(endBanner());
   app.appendChild(c);
+
+  // Victory / defeat overlay
+  if (state.over) app.appendChild(endBanner());
 }
 
 function pileEl(label, count, onClick) {
@@ -724,14 +739,15 @@ function doPlayCard(card, sourceEl, targetUid) {
   }
 
   setTimeout(() => {
-    playCard(card, targetUid);
+    const wasPlayed = playCard(card, targetUid);
     render();
+
     if (targetEl) {
       const r = targetEl.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       spawnSpark(cx, cy);
-      const hasDamage = def.effects.some(e => e.kind === 'damage' || e.kind === 'damageEqualToBlock' || e.kind === 'damageRandom');
+      const hasDamage = def.effects.some(e => e.kind === 'damage' || e.kind === 'damageEqualToBlock' || e.kind === 'damageRandom' || e.kind === 'lastStand');
       const hasBlock = def.effects.some(e => e.kind === 'block');
       const hasHeal = def.effects.some(e => e.kind === 'heal' || e.kind === 'reaper');
       if (hasDamage && targetUid) {
@@ -747,6 +763,16 @@ function doPlayCard(card, sourceEl, targetUid) {
         const p = document.querySelector('[data-panel="player"]');
         if (p) { const pr = p.getBoundingClientRect(); spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+HP', 'heal'); }
       }
+    }
+
+    if (wasPlayed && def.endsTurn && !state.over) {
+      state.pendingCardUid = null;
+      setTimeout(() => {
+        if (state.over) return;
+        beginEnemyTurn();
+        render();
+        setTimeout(() => { resolveEnemyTurn(); render(); }, 450);
+      }, 300);
     }
   }, 220);
 }
@@ -802,9 +828,16 @@ function bottomBar() {
 }
 
 function endBanner() {
-  const el = document.createElement('div');
-  el.className = 'banner';
-  el.textContent = state.result === 'win' ? 'Victory' : 'Defeat';
+  const overlay = document.createElement('div');
+  overlay.className = 'victory-overlay';
+
+  const card = document.createElement('div');
+  card.className = 'victory-card';
+
+  const title = document.createElement('h1');
+  title.className = 'victory-title ' + (state.result === 'win' ? 'win' : 'loss');
+  title.textContent = state.result === 'win' ? 'Victory' : 'Defeat';
+  card.appendChild(title);
 
   const btn = document.createElement('button');
   btn.className = 'btn';
@@ -827,8 +860,9 @@ function endBanner() {
     btn.addEventListener('click', () => { newRun(); render(); });
   }
 
-  el.appendChild(btn);
-  return el;
+  card.appendChild(btn);
+  overlay.appendChild(card);
+  return overlay;
 }
 
 function renderGameOver(app) {
