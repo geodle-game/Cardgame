@@ -5,7 +5,7 @@ import {
 } from './deck.js';
 import { RELICS } from '../data/relics.js';
 import { generateMap, getNode, reachableFrom, startingNodes } from './map.js';
-import { rollCoins, rollCardChoices } from './rewards.js';
+import { rollCoins, rollCardChoices, rollActTransition } from './rewards.js';
 import { randomEvent } from '../data/events.js';
 import { rollShop } from '../data/shop.js';
 
@@ -29,6 +29,7 @@ export const state = {
   pendingCardUid: null,
 
   reward: null,
+  actReward: null,
   event: null,
   shop: null,
   rest: null,
@@ -54,12 +55,25 @@ function emptyOverlays() {
   return { deck: false, relics: false, draw: false, discard: false, exhaust: false };
 }
 
+// ---------- Act scaling ----------
+
+export function actScaling(act) {
+  // act 1: baseline. act 2: tougher. extends cleanly to act 3 later.
+  const table = {
+    1: { hp: 1.0,  damage: 1.0  },
+    2: { hp: 1.55, damage: 1.35 },
+    3: { hp: 2.2,  damage: 1.7  },
+  };
+  return table[act] ?? table[1];
+}
+
 // ---------- Run setup ----------
 
 export function newRun(seed = Date.now()) {
   state.rng = makeRng(seed);
   state.run = {
     seed,
+    act: 1,
     hp: 70, maxHp: 70,
     gold: 99,
     relic: null,
@@ -69,6 +83,8 @@ export function newRun(seed = Date.now()) {
     currentNodeId: null,
     floor: -1,
     cleared: false,
+    victory: false,
+    bossesBeaten: [],
   };
   state.relicChoices = pickRelicChoices();
   state.screen = 'relicPick';
@@ -178,7 +194,10 @@ function pickEncounter(kind) {
   } else if (kind === 'elite') {
     pool = keys.filter(k => k.includes('elite'));
   } else {
-    pool = keys.filter(k => k.includes('boss'));
+    // Boss: pick a boss we haven't beaten yet this run.
+    const allBosses = ['act1-boss', 'act1-boss-2', 'act1-boss-3'];
+    const unbeaten = allBosses.filter(b => !state.run.bossesBeaten.includes(b));
+    pool = unbeaten.length ? unbeaten : allBosses;
   }
   return pool[Math.floor(state.rng() * pool.length)];
 }
@@ -206,14 +225,18 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   };
   state.combatKind = sourceKind;
 
+  const scale = actScaling(state.run.act);
   const ids = ENCOUNTERS[encounterId];
   state.enemies = ids.map((id, i) => {
     const def = getEnemyDef(id);
     const cardDraw = shuffle(def.deck.map(makeEnemyCard), state.rng);
+    const scaledHp = Math.ceil(def.hp * scale.hp);
     return {
       ...def,
       uid: `e${i}`,
-      maxHp: def.hp,
+      hp: scaledHp,
+      maxHp: scaledHp,
+      damageScale: scale.damage,
       block: 0,
       statuses: {},
       cardDraw,
@@ -262,11 +285,64 @@ export function endCombat(win) {
 
   if (win) {
     const kind = state.combatKind || 'monster';
+
+    if (kind === 'boss') {
+      // Boss beaten: mark it, check if the run is over.
+      const lastEncounter = state.lastEncounterId;
+      if (lastEncounter) state.run.bossesBeaten.push(lastEncounter);
+      state.run.cleared = true;
+
+      if (state.run.act >= 2) {
+        // Finished act 2 — final victory.
+        state.run.victory = true;
+      }
+      return;
+    }
+
     const coins = rollCoins(state.rng, kind);
     const cards = rollCardChoices(state.rng, 3);
     state.reward = { coins, cards, taken: false };
-    if (kind === 'boss') state.run.cleared = true;
   }
+}
+
+// Called when the player clicks Continue after the act 1 boss.
+export function nextAct() {
+  state.run.act += 1;
+  state.run.cleared = false;
+  state.run.map = generateMap(state.rng);
+  state.run.currentNodeId = null;
+  state.run.floor = -1;
+  state.actReward = rollActTransition(state.rng, state.run.relics);
+  state.screen = 'actReward';
+}
+
+export function takeActRewardCard(defId) {
+  if (!state.actReward || state.actReward.cardTaken) return;
+  state.run.deckIds.push(defId);
+  state.actReward.cardTaken = true;
+}
+
+export function skipActRewardCard() {
+  if (!state.actReward) return;
+  state.actReward.cardTaken = true;
+}
+
+export function takeActRewardRelic(relicId) {
+  if (!state.actReward || state.actReward.relicTaken) return;
+  state.run.relics.push(relicId);
+  state.actReward.relicTaken = relicId;
+}
+
+export function claimActReward() {
+  if (!state.actReward) return;
+  state.run.gold += state.actReward.coins;
+  pushLog(`Act ${state.run.act}: +${state.actReward.coins} gold.`);
+  state.actReward = null;
+  state.screen = 'map';
+}
+
+export function finishRun() {
+  state.screen = 'victory';
 }
 
 export function rollIntent(enemy) {
@@ -274,7 +350,6 @@ export function rollIntent(enemy) {
   enemy.intentCard = card;
 }
 
-// Retained cards carry over. Then we draw 5 MORE, on top.
 export function startPlayerTurn(isFirstTurn = false) {
   state.turn = 'player';
   if (!isFirstTurn) state.player.block = 0;
@@ -310,7 +385,7 @@ export function skipRewardCard() {
   state.reward.taken = true;
 }
 
-// ---------- Event / Shop / Rest (unchanged) ----------
+// ---------- Event ----------
 
 export function pickEventChoice(index) {
   if (!state.event) return;
@@ -335,6 +410,8 @@ function applyMetaEffect(eff) {
   }
 }
 
+// ---------- Shop ----------
+
 export function buyShopCard(index) {
   if (!state.shop) return;
   const item = state.shop.items[index];
@@ -353,6 +430,8 @@ export function buyShopHeal() {
   state.run.hp = Math.min(state.run.maxHp, state.run.hp + 25);
   pushLog('Healed 25 HP.');
 }
+
+// ---------- Rest ----------
 
 export function restHeal() {
   const amount = Math.floor(state.run.maxHp * 0.3);
