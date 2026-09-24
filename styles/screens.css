@@ -13,8 +13,6 @@
   background: radial-gradient(ellipse at center, #1c2028 0%, #14161a 75%);
 }
 
-/* Painted strip behind the panels. Fixed height so the ~1000x220
-   banner never stretches. Vertically centered against the panels. */
 .combat-band {
   position: absolute;
   left: 0;
@@ -62,7 +60,6 @@
   flex-wrap: wrap;
 }
 
-/* Top-right buttons (deck / relics) */
 .top-buttons {
   position: fixed;
   top: 16px;
@@ -91,7 +88,6 @@
   border-color: #8f6bff;
 }
 
-/* Piles at bottom */
 .pile {
   background: linear-gradient(180deg, #232833, #1a1e26);
   border: 1px solid #3a4250;
@@ -165,6 +161,32 @@
   font-weight: 600;
   margin-bottom: 4px;
   letter-spacing: .02em;
+}
+
+/* Block line with inline shield icon */
+.block {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #6fb3ff;
+  font-weight: 600;
+  transition: opacity .2s ease;
+}
+
+.block-empty {
+  opacity: .35;
+}
+
+.block-icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background-image: url('../assets/shield.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 3px rgba(111,179,255,.5));
 }
 
 .enemy {
@@ -304,6 +326,41 @@
 }
 
 /* ============================================================
+   BLOCK EFFECT
+   ============================================================ */
+
+.block-effect {
+  position: fixed;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  animation: blockEffect 0.95s cubic-bezier(.2,.9,.3,1) forwards;
+  filter: drop-shadow(0 6px 16px rgba(111,179,255,.7));
+}
+
+@keyframes blockEffect {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.4) rotate(-15deg);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -65%) scale(1.15) rotate(-8deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -80%) scale(1) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -130%) scale(1.05) rotate(-8deg);
+  }
+}
+
+/* ============================================================
    VICTORY / DEFEAT OVERLAY
    ============================================================ */
 
@@ -356,7 +413,7 @@
 .victory-title.loss { color: #e05c5c; text-shadow: 0 0 20px rgba(224,92,92,.5); }
 
 /* ============================================================
-   OVERLAYS (deck / relics / piles)
+   OVERLAYS
    ============================================================ */
 
 .overlay {
