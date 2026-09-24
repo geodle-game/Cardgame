@@ -8,22 +8,24 @@
   perspective: 900px;
 }
 
+/* 1:2 aspect ratio — width is half the height. */
 .card {
   width: 130px;
-  min-height: 180px;
+  height: 260px;
   background: linear-gradient(180deg, #2a2f3a, #1e2229);
   border: 2px solid #4a5262;
   border-radius: 10px;
-  padding: 10px;
+  padding: 12px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
   box-shadow: 0 4px 12px rgba(0,0,0,.35);
   animation: cardIn .25s ease-out backwards;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .card::before {
@@ -61,12 +63,13 @@
   box-shadow: 0 4px 12px rgba(0,0,0,.35);
 }
 
-/* Type colors — set the top banner stripe + name color */
+/* Type colors — top stripe + name color */
 .card.type-attack { --type-color: #ff6b6b; }
 .card.type-skill  { --type-color: #6fb3ff; }
 .card.type-power  { --type-color: #c9a3ff; }
+.card.type-status { --type-color: #6b7280; }
 
-/* Rarity — border color + outer glow */
+/* Rarity — border + glow */
 .card.rarity-starter {
   border-color: #4a5262;
 }
@@ -86,15 +89,23 @@
   box-shadow: 0 0 12px rgba(111,143,255,.8);
 }
 
+.card.rarity-status {
+  border-color: #4a4252;
+  background: linear-gradient(180deg, #2c2a30, #1e1c22);
+  filter: grayscale(.4);
+}
+
 .card.pending {
   border-color: #ff8f6b;
   box-shadow: 0 0 0 2px rgba(255,143,107,.4), 0 16px 30px rgba(255,143,107,.3);
   transform: translateY(-12px) scale(1.05);
 }
 
+/* Small variant (deck viewer, shop, reward screens) — same 1:2 ratio. */
 .card.card-small {
   width: 110px;
-  min-height: 150px;
+  height: 220px;
+  padding: 10px;
   animation: none;
 }
 
@@ -112,7 +123,7 @@
   color: #6bff9e;
 }
 
-/* Play animation — flies toward the target */
+/* Play animation */
 .card.playing {
   animation: cardFly .45s cubic-bezier(.4,0,.5,1) forwards;
   pointer-events: none;
@@ -143,12 +154,12 @@
   background: radial-gradient(circle at 30% 30%, #ffe699, #ffb800);
   color: #14161a;
   font-weight: 700;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  font-size: 14px;
   box-shadow: 0 2px 6px rgba(255,184,0,.4);
   flex-shrink: 0;
 }
@@ -158,10 +169,12 @@
   font-size: 14px;
   letter-spacing: .01em;
   color: var(--type-color, #e8eaee);
+  line-height: 1.2;
 }
 
 .ctext {
   color: #b8bdc7;
   font-size: 12px;
   line-height: 1.4;
+  flex-grow: 1;
 }
