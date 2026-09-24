@@ -285,8 +285,9 @@ function applyEffect(eff, targets, card, source) {
 }
 
 export function dealDamage(attacker, target, base, strengthMultiplier) {
+  const scale = attacker.damageScale ?? 1;
   const strBonus = outgoingFlatBonus(attacker) * (strengthMultiplier ?? 1);
-  let dmg = base + strBonus;
+  let dmg = (base * scale) + strBonus;
   dmg *= outgoingMultiplier(attacker);
   dmg *= incomingMultiplier(target);
   dmg = Math.floor(dmg);
@@ -309,7 +310,6 @@ function checkEnemiesDead() {
 export function beginEnemyTurn() {
   if (state.turn !== 'player' || state.over) return;
 
-  // End-of-turn self-damage cards (Burn)
   for (const c of state.hand) {
     const def = CARDS[c.defId];
     if (def.endOfTurnDamage) {
@@ -348,7 +348,6 @@ export function resolveEnemyTurn() {
     return;
   }
 
-  // Per-turn player effects
   if (state.player.perTurnStatuses) {
     for (const entry of state.player.perTurnStatuses) {
       applyStatus(state.player, entry.status, entry.amount);
@@ -363,7 +362,6 @@ export function resolveEnemyTurn() {
   }
   if (state.player.hp <= 0) { endCombat(false); return; }
 
-  // Bonus energy per turn
   if (state.player.perTurnEnergy) {
     state.player.nextTurnEnergy += state.player.perTurnEnergy;
   }
