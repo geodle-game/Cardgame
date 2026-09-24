@@ -84,7 +84,7 @@ export const CARDS = {
   },
   anger: {
     id: 'anger', name: 'Anger', cost: 0, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'discard', retain: true,
+    type: 'attack', target: 'enemy', destination: 'draw', retain: true,
     text: 'Deal 6 damage. Retain.',
     effects: [{ kind: 'damage', amount: 6 }],
   },
@@ -113,13 +113,12 @@ export const CARDS = {
     effects: [{ kind: 'damage', amount: 14, strengthMultiplier: 3 }],
   },
   'sword-boomerang': {
-    id: 'sword-boomerang', name: 'Sword Boomerang', cost: 1, rarity: 'common',
-    type: 'attack', target: 'random-enemy', destination: 'exhaust',
-    text: 'Deal 3 damage to a random enemy 3 times. Exhaust.',
+    id: 'sword-boomerang', name: 'Sword Boomerang', cost: 2, rarity: 'common',
+    type: 'attack', target: 'all-enemies', destination: 'exhaust',
+    text: 'Deal 6 damage to all enemies twice. Exhaust.',
     effects: [
-      { kind: 'damageRandom', amount: 3 },
-      { kind: 'damageRandom', amount: 3 },
-      { kind: 'damageRandom', amount: 3 },
+      { kind: 'damage', amount: 6 },
+      { kind: 'damage', amount: 6 },
     ],
   },
   headbutt: {
@@ -179,6 +178,16 @@ export const CARDS = {
   },
 
   // ================================================================
+  // NEW: Expose — heavy Vulnerable applier
+  // ================================================================
+  expose: {
+    id: 'expose', name: 'Expose', cost: 1, rarity: 'common',
+    type: 'skill', target: 'enemy', destination: 'exhaust',
+    text: 'Apply 3 Vulnerable. Exhaust.',
+    effects: [{ kind: 'applyStatus', status: 'vulnerable', amount: 3 }],
+  },
+
+  // ================================================================
   // EXHAUST PILE GAMBLERS
   // ================================================================
   'grave-robber': {
@@ -201,7 +210,7 @@ export const CARDS = {
   },
 
   // ================================================================
-  // RETAIN CARDS (were duplicators)
+  // RETAIN CARDS
   // ================================================================
   'forked-strike': {
     id: 'forked-strike', name: 'Forked Strike', cost: 1, rarity: 'common',
@@ -220,6 +229,30 @@ export const CARDS = {
     type: 'attack', target: 'enemy', destination: 'discard', retain: true,
     text: 'Deal 9 damage. Retain.',
     effects: [{ kind: 'damage', amount: 9 }],
+  },
+  // --- Foresight (epic): free block + draw, retains, self-cycles.
+  foresight: {
+    id: 'foresight', name: 'Foresight', cost: 0, rarity: 'rare',
+    type: 'skill', target: 'self', destination: 'draw', retain: true,
+    text: 'Gain 2 Block. Draw 1. Retain. Shuffle this back into your draw pile.',
+    effects: [
+      { kind: 'block', amount: 2 },
+      { kind: 'draw', amount: 1 },
+    ],
+  },
+
+  // ================================================================
+  // BLOCK CARDS
+  // ================================================================
+  // --- Blood Wall: big block, costs HP.
+  'blood-wall': {
+    id: 'blood-wall', name: 'Blood Wall', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'discard',
+    text: 'Gain 16 Block. Lose 2 HP.',
+    effects: [
+      { kind: 'block', amount: 16 },
+      { kind: 'loseHpSelf', amount: 2 },
+    ],
   },
 
   // ================================================================
@@ -243,9 +276,9 @@ export const CARDS = {
   // ================================================================
   'fiend-fire': {
     id: 'fiend-fire', name: 'Fiend Fire', cost: 2, rarity: 'rare',
-    type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Exhaust your hand. Deal 7 damage per card exhausted. Exhaust.',
-    effects: [{ kind: 'fiendFire', amount: 7 }],
+    type: 'attack', target: 'enemy', destination: 'discard',
+    text: 'Put all cards in your hand into your discard pile. Deal 2 damage per card discarded.',
+    effects: [{ kind: 'fiendFire', amount: 2 }],
   },
   corruption: {
     id: 'corruption', name: 'Corruption', cost: 3, rarity: 'rare',
