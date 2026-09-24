@@ -17,6 +17,7 @@ import { RELICS } from '../data/relics.js';
 import { ENEMY_CARDS } from '../data/enemy-cards.js';
 import { NODE_TYPES } from '../data/maps.js';
 import { getNode, reachableFrom, startingNodes } from '../systems/map.js';
+import { bannerForCombat } from '../data/banners.js';
 
 export function render() {
   const app = document.getElementById('app');
@@ -45,8 +46,6 @@ export function render() {
 
 // ---------------- Gold coin stack helper ----------------
 
-// Returns an HTML string for the coin stack based on how many coins you have.
-// 0-9 → 1 coin, 10-49 → 2 coins, 50-99 → 3, 100-249 → 4, 250+ → 5.
 function coinStackClass(gold) {
   if (gold >= 250) return 'coin-5';
   if (gold >= 100) return 'coin-4';
@@ -583,6 +582,14 @@ function renderCombat(app) {
   const c = document.createElement('div');
   c.className = 'combat';
 
+  const banner = bannerForCombat(state.combatKind, state.rng);
+
+  // Painted band behind the panels.
+  const band = document.createElement('div');
+  band.className = 'combat-band';
+  band.style.backgroundImage = `url('${banner}')`;
+  c.appendChild(band);
+
   c.appendChild(topButtons());
 
   const top = document.createElement('div');
@@ -619,7 +626,6 @@ function renderCombat(app) {
 
   app.appendChild(c);
 
-  // Victory / defeat overlay
   if (state.over) app.appendChild(endBanner());
 }
 
