@@ -13,33 +13,31 @@
   background: radial-gradient(ellipse at center, #1c2028 0%, #14161a 75%);
 }
 
+/* Band width is 100% of combat. Height follows the image's own aspect
+   ratio, so thicker banners render taller and thinner ones render shorter. */
 .combat-band {
   position: absolute;
   left: 0;
   right: 0;
-  top: 50%;
+  top: 40%;
   transform: translateY(-50%);
-  height: 240px;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
   pointer-events: none;
   z-index: 0;
   opacity: .55;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 18%,
-    black 82%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 18%,
-    black 82%,
-    transparent 100%
-  );
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  mask-composite: intersect;
+}
+
+.combat-band img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .top {
@@ -60,6 +58,7 @@
   flex-wrap: wrap;
 }
 
+/* Top-right buttons (deck / relics) */
 .top-buttons {
   position: fixed;
   top: 16px;
@@ -88,6 +87,7 @@
   border-color: #8f6bff;
 }
 
+/* Piles at bottom */
 .pile {
   background: linear-gradient(180deg, #232833, #1a1e26);
   border: 1px solid #3a4250;
@@ -163,7 +163,6 @@
   letter-spacing: .02em;
 }
 
-/* Block line with inline shield icon */
 .block {
   display: flex;
   align-items: center;
