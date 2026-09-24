@@ -470,16 +470,22 @@ function applyEffect(eff, targets, card, source) {
       pushLog(`  Shuffled discard into draw (${state.drawPile.length} cards).`);
       break;
 
+    case 'duplicateToDiscard':
+      state.discardPile.push(makeCard(card.defId));
+      pushLog(`  Copy of ${CARDS[card.defId].name} added to discard.`);
+      break;
+
+    case 'duplicateToDraw':
+      state.drawPile.push(makeCard(card.defId));
+      state.drawPile = shuffle(state.drawPile, state.rng);
+      pushLog(`  Copy of ${CARDS[card.defId].name} added to draw.`);
+      break;
+
     case 'duplicateToPiles':
       state.discardPile.push(makeCard(card.defId));
       state.drawPile.push(makeCard(card.defId));
       state.drawPile = shuffle(state.drawPile, state.rng);
-      pushLog(`  Forked: copies of ${CARDS[card.defId].name} added to discard and draw.`);
-      break;
-
-    case 'duplicateToDiscard':
-      state.discardPile.push(makeCard(card.defId));
-      pushLog(`  Copy of ${CARDS[card.defId].name} added to discard.`);
+      pushLog(`  Copies of ${CARDS[card.defId].name} added to discard and draw.`);
       break;
 
     case 'dualWield': {
@@ -635,7 +641,6 @@ export function resolveEnemyTurn() {
     state.player.nextTurnEnergy += state.player.perTurnEnergy;
   }
 
-  // Reset per-turn combo state
   state.player.echoUsedThisTurn = false;
   combat.attacksThisTurn = 0;
 
