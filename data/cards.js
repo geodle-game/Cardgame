@@ -1,21 +1,23 @@
 // destination controls what happens AFTER a card is played:
-//   'draw'    = shuffles back into draw pile (recycles)
+//   'draw'    = shuffles back into draw pile
 //   'discard' = goes to discard pile
-//   'exhaust' = removed from combat entirely (only for powers)
-// retain: true means the card stays in hand if UNPLAYED at end of turn.
-// Retained cards do NOT count against the 5 cards you draw next turn.
+//   'exhaust' = removed from combat entirely
+// retain: true means the card always stays in hand at end of turn.
+// In addition to explicit retain, 50% of remaining hand retains (handled in deck.js).
 
 export const CARDS = {
-  // -------- Starter --------
+  // ================================================================
+  // STARTER
+  // ================================================================
   strike: {
     id: 'strike', name: 'Strike', cost: 1, rarity: 'starter',
-    type: 'attack', target: 'enemy', destination: 'draw',
+    type: 'attack', target: 'enemy', destination: 'discard',
     text: 'Deal 6 damage.',
     effects: [{ kind: 'damage', amount: 6 }],
   },
   defend: {
     id: 'defend', name: 'Defend', cost: 1, rarity: 'starter',
-    type: 'skill', target: 'self', destination: 'draw',
+    type: 'skill', target: 'self', destination: 'discard',
     text: 'Gain 5 Block.',
     effects: [{ kind: 'block', amount: 5 }],
   },
@@ -30,19 +32,21 @@ export const CARDS = {
   },
   neutralize: {
     id: 'neutralize', name: 'Neutralize', cost: 0, rarity: 'starter',
-    type: 'attack', target: 'enemy', destination: 'draw',
-    text: 'Deal 3 damage. Apply 1 Weak.',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 3 damage. Apply 1 Weak. Exhaust.',
     effects: [
       { kind: 'damage', amount: 3 },
       { kind: 'applyStatus', status: 'weak', amount: 1 },
     ],
   },
 
-  // -------- Common attacks --------
+  // ================================================================
+  // COMMON ATTACKS
+  // ================================================================
   cleave: {
     id: 'cleave', name: 'Cleave', cost: 1, rarity: 'common',
-    type: 'attack', target: 'all-enemies', destination: 'discard',
-    text: 'Deal 8 damage to all enemies.',
+    type: 'attack', target: 'all-enemies', destination: 'exhaust',
+    text: 'Deal 8 damage to all enemies. Exhaust.',
     effects: [{ kind: 'damage', amount: 8 }],
   },
   'body-slam': {
@@ -53,8 +57,8 @@ export const CARDS = {
   },
   'iron-wave': {
     id: 'iron-wave', name: 'Iron Wave', cost: 1, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Gain 5 Block. Deal 5 damage.',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Gain 5 Block. Deal 5 damage. Exhaust.',
     effects: [
       { kind: 'block', amount: 5 },
       { kind: 'damage', amount: 5 },
@@ -71,8 +75,8 @@ export const CARDS = {
   },
   'twin-strike': {
     id: 'twin-strike', name: 'Twin Strike', cost: 1, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 5 damage twice.',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 5 damage twice. Exhaust.',
     effects: [
       { kind: 'damage', amount: 5 },
       { kind: 'damage', amount: 5 },
@@ -80,7 +84,7 @@ export const CARDS = {
   },
   anger: {
     id: 'anger', name: 'Anger', cost: 0, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'draw',
+    type: 'attack', target: 'enemy', destination: 'draw', retain: true,
     text: 'Deal 6 damage. Retain.',
     effects: [{ kind: 'damage', amount: 6 }],
   },
@@ -95,8 +99,8 @@ export const CARDS = {
   },
   clothesline: {
     id: 'clothesline', name: 'Clothesline', cost: 2, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 12 damage. Apply 2 Weak.',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 12 damage. Apply 2 Weak. Exhaust.',
     effects: [
       { kind: 'damage', amount: 12 },
       { kind: 'applyStatus', status: 'weak', amount: 2 },
@@ -104,14 +108,14 @@ export const CARDS = {
   },
   'heavy-blade': {
     id: 'heavy-blade', name: 'Heavy Blade', cost: 2, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 14 damage. Strength counts 3× for this attack.',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 14 damage. Strength counts 3×. Exhaust.',
     effects: [{ kind: 'damage', amount: 14, strengthMultiplier: 3 }],
   },
   'sword-boomerang': {
     id: 'sword-boomerang', name: 'Sword Boomerang', cost: 1, rarity: 'common',
-    type: 'attack', target: 'random-enemy', destination: 'discard',
-    text: 'Deal 3 damage to a random enemy 3 times.',
+    type: 'attack', target: 'random-enemy', destination: 'exhaust',
+    text: 'Deal 3 damage to a random enemy 3 times. Exhaust.',
     effects: [
       { kind: 'damageRandom', amount: 3 },
       { kind: 'damageRandom', amount: 3 },
@@ -120,8 +124,8 @@ export const CARDS = {
   },
   headbutt: {
     id: 'headbutt', name: 'Headbutt', cost: 1, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 9 damage. Put a random card from your discard pile on top of your draw pile.',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 9 damage. Put a random card from your discard pile on top of your draw pile. Exhaust.',
     effects: [
       { kind: 'damage', amount: 9 },
       { kind: 'recoverFromDiscard' },
@@ -135,126 +139,305 @@ export const CARDS = {
   },
   'reckless-charge': {
     id: 'reckless-charge', name: 'Reckless Charge', cost: 0, rarity: 'common',
-    type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 7 damage. Shuffle a Dazed into your draw pile.',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 7 damage. Shuffle a Dazed into your draw pile. Exhaust.',
     effects: [
       { kind: 'damage', amount: 7 },
       { kind: 'addCardToDraw', cardId: 'dazed' },
     ],
   },
-
-  // -------- Common skills --------
-  recover: {
-    id: 'recover', name: 'Recover', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Heal 6.',
-    effects: [{ kind: 'heal', amount: 6 }],
-  },
-  'shrug-it-off': {
-    id: 'shrug-it-off', name: 'Shrug It Off', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Gain 8 Block. Draw 1.',
+  dropkick: {
+    id: 'dropkick', name: 'Dropkick', cost: 1, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'discard',
+    text: 'Deal 5 damage. If target is Vulnerable, gain 1 Energy and draw 1.',
     effects: [
-      { kind: 'block', amount: 8 },
-      { kind: 'draw', amount: 1 },
+      { kind: 'damage', amount: 5 },
+      { kind: 'dropkick' },
     ],
   },
-  flex: {
-    id: 'flex', name: 'Flex', cost: 0, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard', retain: true,
-    text: 'Gain 2 Strength. Stay.',
-    effects: [{ kind: 'applyStatus', status: 'strength', amount: 2 }],
+  uppercut: {
+    id: 'uppercut', name: 'Uppercut', cost: 2, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 13 damage. Apply 2 Weak and 2 Vulnerable. Exhaust.',
+    effects: [
+      { kind: 'damage', amount: 13 },
+      { kind: 'applyStatus', status: 'weak', amount: 2 },
+      { kind: 'applyStatus', status: 'vulnerable', amount: 2 },
+    ],
   },
-  'true-grit': {
-    id: 'true-grit', name: 'True Grit', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Gain 7 Block. Exhaust a random card in your hand.',
+  finisher: {
+    id: 'finisher', name: 'Finisher', cost: 1, rarity: 'common',
+    type: 'attack', target: 'random-enemy', destination: 'exhaust',
+    text: 'Deal 6 damage to a random enemy for each Attack played this turn. Exhaust.',
+    effects: [{ kind: 'finisher', amount: 6 }],
+  },
+  rampage: {
+    id: 'rampage', name: 'Rampage', cost: 1, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'discard',
+    text: "Deal 8 damage. Permanently increase this card's damage by 5 this combat.",
+    effects: [{ kind: 'rampage', base: 8, per: 5 }],
+  },
+
+  // ================================================================
+  // EXHAUST PILE GAMBLERS (new)
+  // ================================================================
+  'grave-robber': {
+    id: 'grave-robber', name: 'Grave Robber', cost: 1, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Reveal a random card in your exhaust pile. If it is an Attack, deal damage equal to its damage. Exhaust.',
+    effects: [{ kind: 'graveRobber' }],
+  },
+  seance: {
+    id: 'seance', name: 'Seance', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Put a random card from your exhaust pile into your hand. Exhaust.',
+    effects: [{ kind: 'seance' }],
+  },
+  'necromancers-pact': {
+    id: 'necromancers-pact', name: "Necromancer's Pact", cost: 2, rarity: 'rare',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Exhaust a random card in your discard pile. Deal damage equal to its damage. Exhaust.',
+    effects: [{ kind: 'necromancersPact' }],
+  },
+
+  // ================================================================
+  // DUPLICATORS
+  // ================================================================
+  'forked-strike': {
+    id: 'forked-strike', name: 'Forked Strike', cost: 1, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'draw',
+    text: 'Deal 7 damage. Put a copy of this card in your discard pile and a copy in your draw pile.',
+    effects: [
+      { kind: 'damage', amount: 7 },
+      { kind: 'duplicateToPiles' },
+    ],
+  },
+  'echo-shield': {
+    id: 'echo-shield', name: 'Echo Shield', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'draw',
+    text: 'Gain 7 Block. Put a copy of this card in your discard pile and a copy in your draw pile.',
     effects: [
       { kind: 'block', amount: 7 },
-      { kind: 'exhaustRandom' },
+      { kind: 'duplicateToPiles' },
     ],
   },
-  armaments: {
-    id: 'armaments', name: 'Armaments', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Gain 5 Block.',
-    effects: [{ kind: 'block', amount: 5 }],
+  rebound: {
+    id: 'rebound', name: 'Rebound', cost: 1, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'draw',
+    text: 'Deal 9 damage. Put a copy of this card in your discard pile.',
+    effects: [
+      { kind: 'damage', amount: 9 },
+      { kind: 'duplicateToDiscard' },
+    ],
   },
-  warcry: {
-    id: 'warcry', name: 'Warcry', cost: 0, rarity: 'common',
+
+  // ================================================================
+  // DISCARD MANIPULATION
+  // ================================================================
+  rescue: {
+    id: 'rescue', name: 'Rescue', cost: 0, rarity: 'common',
     type: 'skill', target: 'self', destination: 'exhaust',
-    text: 'Draw 2. Put a card from your hand on top of your draw pile.',
+    text: 'Exhaust 1 random card in your discard pile. Shuffle the rest into your draw pile. Exhaust.',
+    effects: [{ kind: 'rescueDiscard' }],
+  },
+  'second-wind': {
+    id: 'second-wind', name: 'Second Wind', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Shuffle your discard pile into your draw pile. Exhaust.',
+    effects: [{ kind: 'shuffleDiscardIntoDraw' }],
+  },
+
+  // ================================================================
+  // EXHAUST PAYOFFS
+  // ================================================================
+  'fiend-fire': {
+    id: 'fiend-fire', name: 'Fiend Fire', cost: 2, rarity: 'rare',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Exhaust your hand. Deal 7 damage per card exhausted. Exhaust.',
+    effects: [{ kind: 'fiendFire', amount: 7 }],
+  },
+  corruption: {
+    id: 'corruption', name: 'Corruption', cost: 3, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'Skills cost 0. Whenever you play a Skill, Exhaust it.',
+    effects: [{ kind: 'corruption' }],
+  },
+  'feel-no-pain': {
+    id: 'feel-no-pain', name: 'Feel No Pain', cost: 1, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'Whenever a card is Exhausted, gain 3 Block.',
+    effects: [{ kind: 'feelNoPain', amount: 3 }],
+  },
+  'dark-embrace': {
+    id: 'dark-embrace', name: 'Dark Embrace', cost: 2, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'Whenever a card is Exhausted, draw 1.',
+    effects: [{ kind: 'darkEmbrace' }],
+  },
+
+  // ================================================================
+  // COMBO SKILLS
+  // ================================================================
+  preparation: {
+    id: 'preparation', name: 'Preparation', cost: 0, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Draw 2. Discard 1. Exhaust.',
     effects: [
       { kind: 'draw', amount: 2 },
-      { kind: 'topDeckRandom' },
+      { kind: 'discardRandom', amount: 1 },
+    ],
+  },
+  'calculated-gamble': {
+    id: 'calculated-gamble', name: 'Calculated Gamble', cost: 0, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Discard your hand, then draw that many cards +1. Exhaust.',
+    effects: [{ kind: 'calculatedGamble' }],
+  },
+  'escape-plan': {
+    id: 'escape-plan', name: 'Escape Plan', cost: 0, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'discard',
+    text: 'Draw 1. If you played an Attack this turn, gain 3 Block.',
+    effects: [
+      { kind: 'draw', amount: 1 },
+      { kind: 'escapePlan', amount: 3 },
+    ],
+  },
+  'deep-breath': {
+    id: 'deep-breath', name: 'Deep Breath', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Draw 2. If your discard pile has 10+ cards, draw 2 more. Exhaust.',
+    effects: [
+      { kind: 'draw', amount: 2 },
+      { kind: 'deepBreath' },
     ],
   },
   'battle-trance': {
     id: 'battle-trance', name: 'Battle Trance', cost: 0, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Draw 3. Apply 1 No Draw.',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Draw 3. Apply 1 No Draw. Exhaust.',
     effects: [
       { kind: 'draw', amount: 3 },
-      { kind: 'applyStatus', status: 'noDraw', amount: 1, target: 'player' },
+      { kind: 'applyStatus', status: 'noDraw', amount: 1 },
     ],
-  },
-  'seeing-red': {
-    id: 'seeing-red', name: 'Seeing Red', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'exhaust',
-    text: 'Gain 2 Energy.',
-    effects: [{ kind: 'gainEnergy', amount: 2 }],
   },
   'burning-pact': {
     id: 'burning-pact', name: 'Burning Pact', cost: 1, rarity: 'common',
-    type: 'skill', target: 'self', destination: 'discard',
-    text: 'Exhaust a random card in your hand. Draw 2.',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Exhaust a random card in your hand. Draw 2. Exhaust.',
     effects: [
       { kind: 'exhaustRandom' },
       { kind: 'draw', amount: 2 },
     ],
   },
-  'ghostly-armor': {
-    id: 'ghostly-armor', name: 'Ghostly Armor', cost: 1, rarity: 'common',
+
+  // ================================================================
+  // ENERGY / HP ENGINES
+  // ================================================================
+  bloodletting: {
+    id: 'bloodletting', name: 'Bloodletting', cost: 0, rarity: 'common',
     type: 'skill', target: 'self', destination: 'exhaust',
-    text: 'Gain 10 Block.',
-    effects: [{ kind: 'block', amount: 10 }],
+    text: 'Lose 3 HP. Gain 2 Energy. Exhaust.',
+    effects: [
+      { kind: 'loseHpSelf', amount: 3 },
+      { kind: 'gainEnergy', amount: 2 },
+    ],
+  },
+  'blood-for-blood': {
+    id: 'blood-for-blood', name: 'Blood for Blood', cost: 3, rarity: 'common',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Costs 1 less per 8 HP lost this combat. Deal 18 damage. Exhaust.',
+    effects: [{ kind: 'damage', amount: 18 }],
+    costReduction: { kind: 'hpLost', per: 8, min: 0 },
+  },
+  'seeing-red': {
+    id: 'seeing-red', name: 'Seeing Red', cost: 1, rarity: 'common',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Gain 2 Energy. Exhaust.',
+    effects: [{ kind: 'gainEnergy', amount: 2 }],
+  },
+  offering: {
+    id: 'offering', name: 'Offering', cost: 0, rarity: 'rare',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Lose 6 HP. Gain 2 Energy. Draw 3. Exhaust.',
+    effects: [
+      { kind: 'loseHpSelf', amount: 6 },
+      { kind: 'gainEnergy', amount: 2 },
+      { kind: 'draw', amount: 3 },
+    ],
   },
 
-  // -------- Rare --------
+  // ================================================================
+  // MULTIPLIERS / ECHOES
+  // ================================================================
+  burst: {
+    id: 'burst', name: 'Burst', cost: 1, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'This turn, your next Skill is played twice.',
+    effects: [{ kind: 'burstNextSkill' }],
+  },
+  'echo-form': {
+    id: 'echo-form', name: 'Echo Form', cost: 3, rarity: 'rare',
+    type: 'power', target: 'self', destination: 'exhaust',
+    text: 'The first card you play each turn is played twice.',
+    effects: [{ kind: 'echoForm' }],
+  },
+  'dual-wield': {
+    id: 'dual-wield', name: 'Dual Wield', cost: 1, rarity: 'rare',
+    type: 'skill', target: 'self', destination: 'exhaust',
+    text: 'Copy a random Attack or Power in your hand. Exhaust.',
+    effects: [{ kind: 'dualWield' }],
+  },
+  whirlwind: {
+    id: 'whirlwind', name: 'Whirlwind', cost: -1, rarity: 'rare',
+    type: 'attack', target: 'all-enemies', destination: 'exhaust',
+    text: 'Deal 5 damage to ALL enemies X times. Costs all your Energy. Exhaust.',
+    effects: [{ kind: 'whirlwind', amount: 5 }],
+    xCost: true,
+  },
+
+  // ================================================================
+  // RARE ATTACKS / SKILLS
+  // ================================================================
+  reaper: {
+    id: 'reaper', name: 'Reaper', cost: 2, rarity: 'rare',
+    type: 'attack', target: 'all-enemies', destination: 'exhaust',
+    text: 'Deal 4 damage to all enemies. Heal HP equal to unblocked damage dealt. Exhaust.',
+    effects: [{ kind: 'reaper', amount: 4 }],
+  },
   adrenaline: {
     id: 'adrenaline', name: 'Adrenaline', cost: 0, rarity: 'rare',
     type: 'power', target: 'self', destination: 'exhaust',
-    text: 'Gain 3 Energy next turn. Remove from deck this combat.',
+    text: 'Gain 3 Energy next turn. Exhaust.',
     effects: [{ kind: 'gainEnergyNextTurn', amount: 3 }],
   },
   inflame: {
     id: 'inflame', name: 'Inflame', cost: 1, rarity: 'rare',
     type: 'power', target: 'self', destination: 'exhaust',
-    text: 'Gain 3 Strength. Remove from deck this combat.',
+    text: 'Gain 3 Strength. Exhaust.',
     effects: [{ kind: 'applyStatus', status: 'strength', amount: 3 }],
   },
   'limit-break': {
     id: 'limit-break', name: 'Limit Break', cost: 1, rarity: 'rare',
     type: 'power', target: 'self', destination: 'exhaust',
-    text: 'Gain 5 Strength. Remove from deck this combat.',
+    text: 'Gain 5 Strength. Exhaust.',
     effects: [{ kind: 'applyStatus', status: 'strength', amount: 5 }],
   },
   bludgeon: {
     id: 'bludgeon', name: 'Bludgeon', cost: 3, rarity: 'rare',
-    type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 32 damage.',
+    type: 'attack', target: 'enemy', destination: 'exhaust',
+    text: 'Deal 32 damage. Exhaust.',
     effects: [{ kind: 'damage', amount: 32 }],
   },
   impervious: {
     id: 'impervious', name: 'Impervious', cost: 2, rarity: 'rare',
     type: 'skill', target: 'self', destination: 'exhaust',
-    text: 'Gain 30 Block. Remove from deck this combat.',
+    text: 'Gain 30 Block. Exhaust.',
     effects: [{ kind: 'block', amount: 30 }],
   },
   feed: {
     id: 'feed', name: 'Feed', cost: 1, rarity: 'rare',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 10 damage. If this kills, gain 3 Max HP.',
+    text: 'Deal 10 damage. If this kills, gain 3 Max HP. Exhaust.',
     effects: [
       { kind: 'damage', amount: 10 },
       { kind: 'feed', amount: 3 },
@@ -266,26 +449,10 @@ export const CARDS = {
     text: 'Each turn, gain 2 Strength.',
     effects: [{ kind: 'gainStatusPerTurn', status: 'strength', amount: 2 }],
   },
-  reaper: {
-    id: 'reaper', name: 'Reaper', cost: 2, rarity: 'rare',
-    type: 'attack', target: 'all-enemies', destination: 'exhaust',
-    text: 'Deal 4 damage to all enemies. Heal HP equal to unblocked damage dealt.',
-    effects: [{ kind: 'reaper', amount: 4 }],
-  },
-  offering: {
-    id: 'offering', name: 'Offering', cost: 0, rarity: 'rare',
-    type: 'skill', target: 'self', destination: 'exhaust',
-    text: 'Lose 6 HP. Gain 2 Energy. Draw 3.',
-    effects: [
-      { kind: 'loseHpSelf', amount: 6 },
-      { kind: 'gainEnergy', amount: 2 },
-      { kind: 'draw', amount: 3 },
-    ],
-  },
   berserk: {
     id: 'berserk', name: 'Berserk', cost: 0, rarity: 'rare',
     type: 'power', target: 'self', destination: 'exhaust',
-    text: 'Gain 1 Energy each turn. At the start of each turn, take 2 damage.',
+    text: 'Gain 1 Energy each turn. Take 2 damage each turn.',
     effects: [{ kind: 'gainEnergyPerTurn', amount: 1, selfDamagePerTurn: 2 }],
   },
   'double-tap': {
@@ -307,24 +474,26 @@ export const CARDS = {
     effects: [{ kind: 'rupture' }],
   },
 
-  // -------- Statuses / curses --------
+  // ================================================================
+  // STATUSES / CURSES
+  // ================================================================
   dazed: {
     id: 'dazed', name: 'Dazed', cost: 999, rarity: 'status',
-    type: 'status', target: 'none', destination: 'draw',
+    type: 'status', target: 'none', destination: 'exhaust',
     unplayable: true, ethereal: true,
     text: 'Unplayable. Ethereal.',
     effects: [],
   },
   wound: {
     id: 'wound', name: 'Wound', cost: 999, rarity: 'status',
-    type: 'status', target: 'none', destination: 'discard',
+    type: 'status', target: 'none', destination: 'exhaust',
     unplayable: true,
     text: 'Unplayable.',
     effects: [],
   },
   burn: {
     id: 'burn', name: 'Burn', cost: 999, rarity: 'status',
-    type: 'status', target: 'none', destination: 'discard',
+    type: 'status', target: 'none', destination: 'exhaust',
     unplayable: true, endOfTurnDamage: 2,
     text: 'Unplayable. At the end of your turn, take 2 damage.',
     effects: [],
@@ -348,11 +517,9 @@ export function starterDeck() {
 }
 
 export function randomStartingDeck(rng, size = 8) {
-  // Fixed basics: 3 Strike, 2 Defend.
-  // Remaining slots filled with random commons/rares, 75% common / 25% rare.
   const strikes = 3;
   const defends = 2;
-  const rest = size - strikes - defends;   // 3 slots
+  const rest = size - strikes - defends;
 
   const commons = Object.keys(CARDS).filter(id => CARDS[id].rarity === 'common');
   const rares   = Object.keys(CARDS).filter(id => CARDS[id].rarity === 'rare');
@@ -370,4 +537,17 @@ export function randomStartingDeck(rng, size = 8) {
     ids.push(pool.splice(idx, 1)[0]);
   }
   return ids;
+}
+
+// Returns the total base damage of a card, or 0 if it deals none.
+// Only counts 'damage' and 'damageRandom' effects. Skills/powers return 0.
+export function cardBaseDamage(defId) {
+  const def = CARDS[defId];
+  if (!def) return 0;
+  let total = 0;
+  for (const eff of def.effects) {
+    if (eff.kind === 'damage') total += eff.amount;
+    if (eff.kind === 'damageRandom') total += eff.amount;
+  }
+  return total;
 }
