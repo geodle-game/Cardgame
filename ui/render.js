@@ -6,6 +6,8 @@ import {
   toggleDeckOverlay, toggleRelicOverlay,
   toggleDrawOverlay, toggleDiscardOverlay, toggleExhaustOverlay,
   closeOverlays,
+  nextAct, claimActReward, takeActRewardCard, skipActRewardCard,
+  takeActRewardRelic, finishRun,
 } from '../systems/state.js';
 import {
   canPlay, playCard, selectCardForPlay, beginEnemyTurn, resolveEnemyTurn,
@@ -21,15 +23,17 @@ export function render() {
   app.innerHTML = '';
 
   switch (state.screen) {
-    case 'relicPick': renderRelicPick(app); break;
-    case 'deckView':  renderDeckView(app);  break;
-    case 'map':       renderMap(app);       break;
-    case 'combat':    renderCombat(app);    break;
-    case 'reward':    renderReward(app);    break;
-    case 'event':     renderEvent(app);     break;
-    case 'shop':      renderShop(app);      break;
-    case 'rest':      renderRest(app);      break;
-    default:          renderGameOver(app);
+    case 'relicPick':  renderRelicPick(app);  break;
+    case 'deckView':   renderDeckView(app);   break;
+    case 'map':        renderMap(app);        break;
+    case 'combat':     renderCombat(app);     break;
+    case 'reward':     renderReward(app);     break;
+    case 'actReward':  renderActReward(app);  break;
+    case 'event':      renderEvent(app);      break;
+    case 'shop':       renderShop(app);       break;
+    case 'rest':       renderRest(app);       break;
+    case 'victory':    renderVictory(app);    break;
+    default:           renderGameOver(app);
   }
 
   if (state.overlays?.deck)    renderDeckOverlay(app);
@@ -216,6 +220,7 @@ function renderMap(app) {
   const header = document.createElement('div');
   header.className = 'map-header';
   header.innerHTML = `
+    <div>Act ${state.run.act}</div>
     <div>HP <span class="hp">${state.run.hp}/${state.run.maxHp}</span></div>
     <div>Gold <span class="gold">${state.run.gold}</span></div>
     <div>Floor ${state.run.floor + 1} / ${map.floors}</div>
@@ -297,7 +302,7 @@ function renderMap(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Reward / Event / Shop / Rest ----------------
+// ---------------- Reward ----------------
 
 function renderReward(app) {
   const r = state.reward;
@@ -342,6 +347,110 @@ function renderReward(app) {
   wrap.appendChild(btn);
   app.appendChild(wrap);
 }
+
+// ---------------- Act transition ----------------
+
+function renderActReward(app) {
+  const r = state.actReward;
+  const wrap = document.createElement('div');
+  wrap.className = 'screen screen-center';
+
+  const h = document.createElement('h1');
+  h.textContent = `Act ${state.run.act}`;
+  wrap.appendChild(h);
+
+  const gold = document.createElement('p');
+  gold.className = 'gold';
+  gold.textContent = `+${r.coins} gold`;
+  wrap.appendChild(gold);
+
+  if (!r.relicTaken) {
+    const sub = document.createElement('p');
+    sub.className = 'muted';
+    sub.textContent = 'Choose a relic:';
+    wrap.appendChild(sub);
+
+    const row = document.createElement('div');
+    row.className = 'relic-row';
+    for (const id of r.relicChoices) {
+      const relic = RELICS[id];
+      const btn = document.createElement('button');
+      btn.className = 'relic-card';
+      btn.innerHTML = `<div class="relic-name">${relic.name}</div><div class="relic-text">${relic.text}</div>`;
+      btn.addEventListener('click', () => { takeActRewardRelic(id); render(); });
+      row.appendChild(btn);
+    }
+    wrap.appendChild(row);
+  } else {
+    const taken = document.createElement('p');
+    taken.className = 'muted';
+    taken.textContent = `Relic chosen: ${RELICS[r.relicTaken].name}`;
+    wrap.appendChild(taken);
+
+    if (!r.cardTaken) {
+      const sub = document.createElement('p');
+      sub.className = 'muted';
+      sub.textContent = 'Add a card to your deck:';
+      wrap.appendChild(sub);
+
+      const grid = document.createElement('div');
+      grid.className = 'deck-grid';
+      for (const id of r.cards) {
+        const el = cardFace(id);
+        el.addEventListener('click', () => { takeActRewardCard(id); render(); });
+        grid.appendChild(el);
+      }
+      wrap.appendChild(grid);
+
+      const skip = document.createElement('button');
+      skip.className = 'btn';
+      skip.textContent = 'Skip';
+      skip.addEventListener('click', () => { skipActRewardCard(); render(); });
+      wrap.appendChild(skip);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.textContent = 'Onward';
+      btn.addEventListener('click', () => { claimActReward(); render(); });
+      wrap.appendChild(btn);
+    }
+  }
+
+  app.appendChild(wrap);
+}
+
+// ---------------- Victory ----------------
+
+function renderVictory(app) {
+  const wrap = document.createElement('div');
+  wrap.className = 'screen screen-center';
+
+  const h = document.createElement('h1');
+  h.textContent = 'You Win';
+  h.style.color = '#ffd166';
+  wrap.appendChild(h);
+
+  const stats = document.createElement('div');
+  stats.className = 'victory-stats';
+  stats.innerHTML = `
+    <div>Acts cleared: <strong>${state.run.act}</strong></div>
+    <div>Final HP: <strong class="hp">${state.run.hp} / ${state.run.maxHp}</strong></div>
+    <div>Gold: <strong class="gold">${state.run.gold}</strong></div>
+    <div>Deck size: <strong>${state.run.deckIds.length}</strong></div>
+    <div>Relics: <strong style="color:#c9a3ff">${state.run.relics.length}</strong></div>
+  `;
+  wrap.appendChild(stats);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'New Run';
+  btn.addEventListener('click', () => { newRun(); render(); });
+  wrap.appendChild(btn);
+
+  app.appendChild(wrap);
+}
+
+// ---------------- Event / Shop / Rest ----------------
 
 function renderEvent(app) {
   const ev = state.event.data;
@@ -614,9 +723,9 @@ function doPlayCard(card, sourceEl, targetUid) {
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       spawnSpark(cx, cy);
-      const hasDamage = def.effects.some(e => e.kind === 'damage' || e.kind === 'damageEqualToBlock');
+      const hasDamage = def.effects.some(e => e.kind === 'damage' || e.kind === 'damageEqualToBlock' || e.kind === 'damageRandom');
       const hasBlock = def.effects.some(e => e.kind === 'block');
-      const hasHeal = def.effects.some(e => e.kind === 'heal');
+      const hasHeal = def.effects.some(e => e.kind === 'heal' || e.kind === 'reaper');
       if (hasDamage && targetUid) {
         shakePanel(targetUid);
         flashPanel(targetUid);
@@ -644,7 +753,7 @@ function cardFace(defId, { disabled = false, small = false } = {}) {
   el.classList.add(`type-${def.type || 'skill'}`);
   if (def.retain) el.classList.add('card-retain');
   el.innerHTML = `
-    <div class="cost">${def.cost}</div>
+    <div class="cost">${def.unplayable ? '–' : def.cost}</div>
     <div class="cname">${def.name}</div>
     <div class="ctext">${def.text}</div>
   `;
@@ -691,13 +800,25 @@ function endBanner() {
 
   const btn = document.createElement('button');
   btn.className = 'btn';
+
   if (state.result === 'win') {
-    btn.textContent = 'Rewards';
-    btn.addEventListener('click', () => { state.screen = 'reward'; render(); });
+    if (state.combatKind === 'boss') {
+      if (state.run.act >= 2) {
+        btn.textContent = 'See Final Results';
+        btn.addEventListener('click', () => { finishRun(); render(); });
+      } else {
+        btn.textContent = 'Continue to Act 2';
+        btn.addEventListener('click', () => { nextAct(); render(); });
+      }
+    } else {
+      btn.textContent = 'Rewards';
+      btn.addEventListener('click', () => { state.screen = 'reward'; render(); });
+    }
   } else {
     btn.textContent = 'New Run';
     btn.addEventListener('click', () => { newRun(); render(); });
   }
+
   el.appendChild(btn);
   return el;
 }
