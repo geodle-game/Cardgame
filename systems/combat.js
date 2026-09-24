@@ -6,14 +6,41 @@ import {
   applyStatus, outgoingMultiplier, incomingMultiplier,
   outgoingFlatBonus, tickStatuses,
 } from './statuses.js';
-import { CARDS } from '../data/cards.js';
+import { CARDS, cardBaseDamage } from '../data/cards.js';
 import { ENEMY_CARDS } from '../data/enemy-cards.js';
+
+const combat = {
+  attacksThisTurn: 0,
+  hpLostThisCombat: 0,
+  rampageBonus: {},
+};
+
+export function resetCombatScratch() {
+  combat.attacksThisTurn = 0;
+  combat.hpLostThisCombat = 0;
+  combat.rampageBonus = {};
+}
+
+export function costOf(card) {
+  const def = CARDS[card.defId];
+  let cost = def.cost;
+
+  if (def.xCost) return state.energy;
+  if (cost === -1) return 0;
+  if (state.player?.corruption && def.type === 'skill') cost = 0;
+
+  if (def.costReduction?.kind === 'hpLost') {
+    const steps = Math.floor(combat.hpLostThisCombat / def.costReduction.per);
+    cost = Math.max(def.costReduction.min ?? 0, cost - steps);
+  }
+  return Math.max(0, cost);
+}
 
 export function canPlay(card) {
   if (state.turn !== 'player' || state.over) return false;
   const def = CARDS[card.defId];
   if (def.unplayable) return false;
-  return state.energy >= def.cost;
+  return state.energy >= costOf(card);
 }
 
 export function selectCardForPlay(card) {
@@ -30,32 +57,73 @@ export function selectCardForPlay(card) {
 export function playCard(card, explicitTargetId = null) {
   if (!canPlay(card)) return false;
   const def = CARDS[card.defId];
-  state.energy -= def.cost;
+  const cost = costOf(card);
+  state.energy -= cost;
   state.pendingCardUid = null;
   state.hand = state.hand.filter(c => c.uid !== card.uid);
 
   const targets = resolveTargets(def.target, explicitTargetId);
-  for (const eff of def.effects) applyEffect(eff, targets, card, state.player);
 
-  if (state.player.doubleTapNextAttack && def.type === 'attack') {
-    state.player.doubleTapNextAttack = false;
-    for (const eff of def.effects) applyEffect(eff, targets, card, state.player);
-    pushLog('Double Tap! Attack played twice.');
-  }
+  if (def.type === 'attack') combat.attacksThisTurn++;
 
-  const dest = def.destination ?? 'discard';
-  if (dest === 'draw') {
-    state.drawPile.push(card);
-    state.drawPile = shuffle(state.drawPile, state.rng);
-  } else if (dest === 'exhaust') {
-    state.exhaustPile.push(card);
-  } else {
-    state.discardPile.push(card);
+  const echoActive = state.player.echoForm && !state.player.echoUsedThisTurn;
+  if (echoActive) state.player.echoUsedThisTurn = true;
+
+  const doubleTap = state.player.doubleTapNextAttack && def.type === 'attack';
+  if (doubleTap) state.player.doubleTapNextAttack = false;
+
+  const burst = state.player.burstNextSkill && def.type === 'skill';
+  if (burst) state.player.burstNextSkill = false;
+
+  const timesToPlay =
+    1 +
+    (doubleTap ? 1 : 0) +
+    (burst ? 1 : 0) +
+    (echoActive ? 1 : 0);
+
+  for (let i = 0; i < timesToPlay; i++) {
+    if (def.xCost) {
+      const x = cost;
+      for (let j = 0; j < x; j++) {
+        for (const eff of def.effects) applyEffect(eff, targets, card, state.player);
+      }
+    } else {
+      for (const eff of def.effects) applyEffect(eff, targets, card, state.player);
+    }
   }
+  if (timesToPlay > 1) pushLog(`  Played ${timesToPlay}×!`);
+
+  let dest = def.destination ?? 'discard';
+  if (state.player.corruption && def.type === 'skill') dest = 'exhaust';
+
+  moveCardToDestination(card, dest);
 
   pushLog(`You played ${def.name}.`);
   checkEnemiesDead();
   return true;
+}
+
+function moveCardToDestination(card, dest) {
+  if (dest === 'draw') {
+    state.drawPile.push(card);
+    state.drawPile = shuffle(state.drawPile, state.rng);
+  } else if (dest === 'exhaust') {
+    exhaustCard(card);
+  } else {
+    state.discardPile.push(card);
+  }
+}
+
+function exhaustCard(card) {
+  state.exhaustPile.push(card);
+  if (state.player.feelNoPain) {
+    state.player.block += state.player.feelNoPain;
+    pushLog(`  Feel No Pain: +${state.player.feelNoPain} Block.`);
+  }
+  if (state.player.darkEmbrace) {
+    draw(state, 1);
+    pushLog('  Dark Embrace: drew 1.');
+  }
 }
 
 function resolveTargets(targetKind, explicitId) {
@@ -118,6 +186,30 @@ function applyEffect(eff, targets, card, source) {
       break;
     }
 
+    case 'rampage': {
+      const bonus = combat.rampageBonus[card.uid] || 0;
+      const amount = eff.base + bonus;
+      for (const t of targets) {
+        const r = dealDamage(source, t, amount);
+        pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}). Rampage now ${amount + eff.per}.`);
+      }
+      combat.rampageBonus[card.uid] = bonus + eff.per;
+      break;
+    }
+
+    case 'finisher': {
+      const times = Math.max(0, combat.attacksThisTurn - 1);
+      for (let i = 0; i < times; i++) {
+        const pool = livingEnemies();
+        if (!pool.length) break;
+        const t = pool[Math.floor(state.rng() * pool.length)];
+        const r = dealDamage(source, t, eff.amount);
+        pushLog(`  Finisher: ${t.name} took ${r.dealt}.`);
+      }
+      if (times === 0) pushLog('  Finisher: no attacks before this.');
+      break;
+    }
+
     case 'reaper': {
       let totalDealt = 0;
       for (const t of livingEnemies()) {
@@ -151,6 +243,7 @@ function applyEffect(eff, targets, card, source) {
 
     case 'loseHpSelf':
       state.player.hp = Math.max(0, state.player.hp - eff.amount);
+      combat.hpLostThisCombat += eff.amount;
       pushLog(`  Lost ${eff.amount} HP.`);
       if (state.player.rupture) {
         applyStatus(state.player, 'strength', state.player.rupture);
@@ -194,6 +287,17 @@ function applyEffect(eff, targets, card, source) {
         pushLog(`  Drew ${eff.amount}.`);
       }
       break;
+
+    case 'discardRandom': {
+      for (let i = 0; i < eff.amount; i++) {
+        if (!state.hand.length) break;
+        const idx = Math.floor(state.rng() * state.hand.length);
+        const c = state.hand.splice(idx, 1)[0];
+        state.discardPile.push(c);
+        pushLog(`  Discarded ${CARDS[c.defId].name}.`);
+      }
+      break;
+    }
 
     case 'recoverFromDiscard': {
       if (state.discardPile.length) {
@@ -241,7 +345,7 @@ function applyEffect(eff, targets, card, source) {
       if (state.hand.length) {
         const idx = Math.floor(state.rng() * state.hand.length);
         const removed = state.hand.splice(idx, 1)[0];
-        state.exhaustPile.push(removed);
+        exhaustCard(removed);
         pushLog(`  Exhausted ${CARDS[removed.defId].name}.`);
       }
       break;
@@ -269,6 +373,31 @@ function applyEffect(eff, targets, card, source) {
       pushLog('  Next attack this turn will play twice.');
       break;
 
+    case 'burstNextSkill':
+      state.player.burstNextSkill = true;
+      pushLog('  Next skill this turn will play twice.');
+      break;
+
+    case 'echoForm':
+      state.player.echoForm = true;
+      pushLog('  Echo Form active.');
+      break;
+
+    case 'corruption':
+      state.player.corruption = true;
+      pushLog('  Corruption active. Skills cost 0 and exhaust.');
+      break;
+
+    case 'feelNoPain':
+      state.player.feelNoPain = (state.player.feelNoPain || 0) + eff.amount;
+      pushLog(`  Feel No Pain ${state.player.feelNoPain}.`);
+      break;
+
+    case 'darkEmbrace':
+      state.player.darkEmbrace = true;
+      pushLog('  Dark Embrace active.');
+      break;
+
     case 'juggernaut':
       state.player.juggernaut = (state.player.juggernaut || 0) + eff.amount;
       pushLog(`  Juggernaut ${eff.amount}.`);
@@ -278,6 +407,146 @@ function applyEffect(eff, targets, card, source) {
       state.player.rupture = (state.player.rupture || 0) + 1;
       pushLog('  Rupture active.');
       break;
+
+    case 'dropkick': {
+      const t = targets[0];
+      if (t && (t.statuses?.vulnerable || 0) > 0) {
+        state.energy += 1;
+        draw(state, 1);
+        pushLog('  Dropkick! +1 Energy, drew 1.');
+      }
+      break;
+    }
+
+    case 'escapePlan':
+      if (combat.attacksThisTurn > 0) {
+        state.player.block += eff.amount;
+        pushLog(`  Escape Plan: +${eff.amount} Block.`);
+      }
+      break;
+
+    case 'deepBreath':
+      if (state.discardPile.length >= 10) {
+        draw(state, 2);
+        pushLog('  Deep Breath: drew 2 more.');
+      }
+      break;
+
+    case 'calculatedGamble': {
+      const n = state.hand.length;
+      state.discardPile.push(...state.hand);
+      state.hand = [];
+      draw(state, n + 1);
+      pushLog(`  Calculated Gamble: discarded ${n}, drew ${n + 1}.`);
+      break;
+    }
+
+    case 'fiendFire': {
+      const n = state.hand.length;
+      const toExhaust = state.hand.splice(0);
+      for (const c of toExhaust) exhaustCard(c);
+      const dmg = n * eff.amount;
+      for (const t of targets) {
+        const r = dealDamage(source, t, dmg);
+        pushLog(`  Fiend Fire: ${t.name} took ${r.dealt} (${n} cards).`);
+      }
+      break;
+    }
+
+    case 'rescueDiscard': {
+      if (!state.discardPile.length) break;
+      const idx = Math.floor(state.rng() * state.discardPile.length);
+      const c = state.discardPile.splice(idx, 1)[0];
+      exhaustCard(c);
+      state.drawPile = shuffle(state.drawPile.concat(state.discardPile), state.rng);
+      state.discardPile = [];
+      pushLog(`  Rescue: exhausted ${CARDS[c.defId].name}, shuffled ${state.drawPile.length} into draw.`);
+      break;
+    }
+
+    case 'shuffleDiscardIntoDraw':
+      state.drawPile = shuffle(state.drawPile.concat(state.discardPile), state.rng);
+      state.discardPile = [];
+      pushLog(`  Shuffled discard into draw (${state.drawPile.length} cards).`);
+      break;
+
+    case 'duplicateToPiles':
+      state.discardPile.push(makeCard(card.defId));
+      state.drawPile.push(makeCard(card.defId));
+      state.drawPile = shuffle(state.drawPile, state.rng);
+      pushLog(`  Forked: copies of ${CARDS[card.defId].name} added to discard and draw.`);
+      break;
+
+    case 'duplicateToDiscard':
+      state.discardPile.push(makeCard(card.defId));
+      pushLog(`  Copy of ${CARDS[card.defId].name} added to discard.`);
+      break;
+
+    case 'dualWield': {
+      const candidates = state.hand.filter(c => {
+        const d = CARDS[c.defId];
+        return d.type === 'attack' || d.type === 'power';
+      });
+      if (!candidates.length) { pushLog('  No Attack or Power in hand.'); break; }
+      const pick = candidates[Math.floor(state.rng() * candidates.length)];
+      state.hand.push(makeCard(pick.defId));
+      pushLog(`  Copied ${CARDS[pick.defId].name}.`);
+      break;
+    }
+
+    case 'whirlwind':
+      break;
+
+    case 'graveRobber': {
+      if (!state.exhaustPile.length) {
+        pushLog('  Exhaust pile is empty.');
+        break;
+      }
+      const idx = Math.floor(state.rng() * state.exhaustPile.length);
+      const c = state.exhaustPile[idx];
+      const dmg = cardBaseDamage(c.defId);
+      pushLog(`  Revealed ${CARDS[c.defId].name} (${dmg} damage).`);
+      if (dmg > 0 && targets.length) {
+        for (const t of targets) {
+          const r = dealDamage(source, t, dmg);
+          pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
+        }
+      } else {
+        pushLog('  Not an attack — nothing happens.');
+      }
+      break;
+    }
+
+    case 'seance': {
+      if (!state.exhaustPile.length) {
+        pushLog('  Exhaust pile is empty.');
+        break;
+      }
+      const idx = Math.floor(state.rng() * state.exhaustPile.length);
+      const c = state.exhaustPile.splice(idx, 1)[0];
+      state.hand.push(c);
+      pushLog(`  Returned ${CARDS[c.defId].name} from the exhaust pile.`);
+      break;
+    }
+
+    case 'necromancersPact': {
+      if (!state.discardPile.length) {
+        pushLog('  Discard pile is empty.');
+        break;
+      }
+      const idx = Math.floor(state.rng() * state.discardPile.length);
+      const c = state.discardPile.splice(idx, 1)[0];
+      const dmg = cardBaseDamage(c.defId);
+      pushLog(`  Exhausted ${CARDS[c.defId].name} (${dmg} damage).`);
+      exhaustCard(c);
+      if (dmg > 0 && targets.length) {
+        for (const t of targets) {
+          const r = dealDamage(source, t, dmg);
+          pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
+        }
+      }
+      break;
+    }
 
     default:
       pushLog(`  Unknown effect: ${eff.kind}`);
@@ -365,6 +634,10 @@ export function resolveEnemyTurn() {
   if (state.player.perTurnEnergy) {
     state.player.nextTurnEnergy += state.player.perTurnEnergy;
   }
+
+  // Reset per-turn combo state
+  state.player.echoUsedThisTurn = false;
+  combat.attacksThisTurn = 0;
 
   startPlayerTurn();
 }
