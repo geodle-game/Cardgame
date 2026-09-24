@@ -7,18 +7,22 @@
   flex-direction: column;
   gap: 16px;
   min-height: calc(100vh - 32px);
+  position: relative;
 }
 
 .top {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
+  margin-top: auto;
+  margin-bottom: auto;
+  padding: 24px 0;
 }
 
 .top-mid {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: center;
+  gap: 48px;
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -99,9 +103,10 @@
 
 .enemies {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   flex-wrap: wrap;
   align-items: flex-start;
+  justify-content: center;
 }
 
 .panel {
@@ -259,7 +264,59 @@
 }
 
 /* ============================================================
-   OVERLAYS
+   VICTORY / DEFEAT OVERLAY
+   ============================================================ */
+
+.victory-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+  animation: victoryIn .35s ease-out;
+}
+
+@keyframes victoryIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.victory-card {
+  background: linear-gradient(180deg, #232833, #1a1e26);
+  border: 2px solid #8f6bff;
+  border-radius: 16px;
+  padding: 32px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 20px 60px rgba(143,107,255,.35), 0 0 0 1px rgba(143,107,255,.2) inset;
+  animation: victoryCardIn .4s cubic-bezier(.2,.9,.3,1.4);
+  min-width: 320px;
+}
+
+@keyframes victoryCardIn {
+  from { opacity: 0; transform: scale(.85) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.victory-title {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.victory-title.win  { color: #ffd166; text-shadow: 0 0 20px rgba(255,209,102,.5); }
+.victory-title.loss { color: #e05c5c; text-shadow: 0 0 20px rgba(224,92,92,.5); }
+
+/* ============================================================
+   OVERLAYS (deck / relics / piles)
    ============================================================ */
 
 .overlay {
@@ -336,6 +393,7 @@
   display: flex;
   gap: 24px;
   flex-wrap: wrap;
+  align-items: center;
   padding: 12px 16px;
   background: linear-gradient(180deg, #232833, #1a1e26);
   border: 1px solid #3a4250;
@@ -407,6 +465,7 @@
    ============================================================ */
 
 .gold { color: #ffd166; font-weight: 600; }
+.heal { color: #6bff9e; font-weight: 600; }
 
 .event-text {
   max-width: 520px;
@@ -448,3 +507,42 @@
 .shop-card:hover { transform: none; }
 
 .shop-heal { margin-top: 8px; }
+
+.victory-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 28px;
+  background: linear-gradient(180deg, #232833, #1a1e26);
+  border: 1px solid #3a4250;
+  border-radius: 12px;
+  font-size: 15px;
+  min-width: 280px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+
+/* ============================================================
+   GOLD COIN STACK
+   ============================================================ */
+
+.gold-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gold-coin {
+  width: 28px;
+  height: 28px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
+}
+
+.gold-coin.coin-1 { background-image: url('../assets/coin1.png'); }
+.gold-coin.coin-2 { background-image: url('../assets/coin2.png'); }
+.gold-coin.coin-3 { background-image: url('../assets/coin3.png'); }
+.gold-coin.coin-4 { background-image: url('../assets/coin4.png'); }
+.gold-coin.coin-5 { background-image: url('../assets/coin5.png'); }
