@@ -16,13 +16,12 @@
   gap: 16px;
   margin-top: auto;
   margin-bottom: auto;
-  padding: 24px 0;
 }
 
 .top-mid {
   display: flex;
-  justify-content: center;
-  gap: 48px;
+  justify-content: space-between;
+  gap: 16px;
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -103,10 +102,9 @@
 
 .enemies {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   flex-wrap: wrap;
   align-items: flex-start;
-  justify-content: center;
 }
 
 .panel {
