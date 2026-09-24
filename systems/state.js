@@ -58,7 +58,6 @@ function emptyOverlays() {
 // ---------- Act scaling ----------
 
 export function actScaling(act) {
-  // act 1: baseline. act 2: tougher. extends cleanly to act 3 later.
   const table = {
     1: { hp: 1.0,  damage: 1.0  },
     2: { hp: 1.55, damage: 1.35 },
@@ -194,7 +193,6 @@ function pickEncounter(kind) {
   } else if (kind === 'elite') {
     pool = keys.filter(k => k.includes('elite'));
   } else {
-    // Boss: pick a boss we haven't beaten yet this run.
     const allBosses = ['act1-boss', 'act1-boss-2', 'act1-boss-3'];
     const unbeaten = allBosses.filter(b => !state.run.bossesBeaten.includes(b));
     pool = unbeaten.length ? unbeaten : allBosses;
@@ -224,6 +222,7 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
     perTurnHooks: [],
   };
   state.combatKind = sourceKind;
+  state.lastEncounterId = encounterId;
 
   const scale = actScaling(state.run.act);
   const ids = ENCOUNTERS[encounterId];
@@ -287,13 +286,11 @@ export function endCombat(win) {
     const kind = state.combatKind || 'monster';
 
     if (kind === 'boss') {
-      // Boss beaten: mark it, check if the run is over.
       const lastEncounter = state.lastEncounterId;
       if (lastEncounter) state.run.bossesBeaten.push(lastEncounter);
       state.run.cleared = true;
 
       if (state.run.act >= 2) {
-        // Finished act 2 — final victory.
         state.run.victory = true;
       }
       return;
@@ -307,12 +304,20 @@ export function endCombat(win) {
 
 // Called when the player clicks Continue after the act 1 boss.
 export function nextAct() {
+  const healAmount = Math.floor(state.run.maxHp * 0.3);
+  const hpBefore = state.run.hp;
+  state.run.hp = Math.min(state.run.maxHp, state.run.hp + healAmount);
+  const healed = state.run.hp - hpBefore;
+  pushLog(`Act cleared. Healed ${healed} HP (30% of max).`);
+
   state.run.act += 1;
   state.run.cleared = false;
   state.run.map = generateMap(state.rng);
   state.run.currentNodeId = null;
   state.run.floor = -1;
   state.actReward = rollActTransition(state.rng, state.run.relics);
+  state.actReward.healAmount = healed;
+  state.actReward.healRequested = healAmount;
   state.screen = 'actReward';
 }
 
