@@ -48,7 +48,7 @@ export const ENEMIES = {
     id: 'sneaky-gremlin', name: 'Sneaky Gremlin', hp: 10,
     deck: ['puncture', 'puncture'],
   },
-  'chosen': {
+  chosen: {
     id: 'chosen', name: 'Chosen', hp: 60,
     deck: ['chosen-hex', 'chosen-strike', 'chosen-hex', 'chosen-strike'],
   },
@@ -56,13 +56,13 @@ export const ENEMIES = {
     id: 'byrd', name: 'Byrd', hp: 26,
     deck: ['peck', 'swoop', 'peck'],
   },
-  'centurion': {
+  centurion: {
     id: 'centurion', name: 'Centurion', hp: 76,
     deck: ['slash', 'fury', 'slash', 'shield-bash'],
   },
 
   // -------- Elites --------
-  gremlin-nob: {
+  'gremlin-nob': {
     id: 'gremlin-nob', name: 'Gremlin Nob', hp: 82,
     deck: ['nob-rush', 'nob-skull-bash', 'nob-rush', 'nob-bellow'],
   },
