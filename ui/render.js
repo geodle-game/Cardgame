@@ -584,7 +584,6 @@ function renderCombat(app) {
 
   const banner = bannerForCombat(state.combatKind, state.rng);
 
-  // Painted band behind the panels.
   const band = document.createElement('div');
   band.className = 'combat-band';
   band.style.backgroundImage = `url('${banner}')`;
@@ -648,7 +647,9 @@ function playerPanel() {
   el.innerHTML = `
     <div class="panel-name">You</div>
     <div class="hp">HP ${p.hp} / ${p.maxHp}</div>
-    <div class="block">Block ${p.block}</div>
+    <div class="block${p.block > 0 ? '' : ' block-empty'}">
+      <span class="block-icon"></span>${p.block}
+    </div>
     <div class="energy">Energy ${state.energy} / ${state.maxEnergy}</div>
     ${statusRow(p.statuses)}
   `;
@@ -671,7 +672,9 @@ function enemyPanel(e) {
   el.innerHTML = `
     <div class="panel-name">${e.name}</div>
     <div class="hp">HP ${e.hp} / ${e.maxHp}</div>
-    <div class="block">Block ${e.block}</div>
+    <div class="block${e.block > 0 ? '' : ' block-empty'}">
+      <span class="block-icon"></span>${e.block}
+    </div>
     ${statusRow(e.statuses)}
   `;
 
@@ -763,7 +766,11 @@ function doPlayCard(card, sourceEl, targetUid) {
       }
       if (hasBlock) {
         const p = document.querySelector('[data-panel="player"]');
-        if (p) { const pr = p.getBoundingClientRect(); spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+BLOCK', 'block'); }
+        if (p) {
+          const pr = p.getBoundingClientRect();
+          spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+BLOCK', 'block');
+          spawnBlockEffect(p);
+        }
       }
       if (hasHeal) {
         const p = document.querySelector('[data-panel="player"]');
@@ -897,6 +904,19 @@ export function spawnSpark(x, y) {
   el.style.top = y + 'px';
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 450);
+}
+
+// Big slanted shield that appears beside the player panel when they gain Block.
+export function spawnBlockEffect(playerEl) {
+  const r = playerEl.getBoundingClientRect();
+  const img = document.createElement('img');
+  img.src = 'assets/block.png';
+  img.className = 'block-effect';
+  // Appears to the right of the player panel, between player and enemies.
+  img.style.left = (r.right + 30) + 'px';
+  img.style.top  = (r.top + r.height / 2) + 'px';
+  document.body.appendChild(img);
+  setTimeout(() => img.remove(), 950);
 }
 
 export function shakePanel(uid) {
