@@ -581,16 +581,15 @@ function renderCombat(app) {
   const c = document.createElement('div');
   c.className = 'combat';
 
-  // Banner was picked once at combat start (state.combatBanner) and
-  // never changes until the next fight. Same image on every re-render.
+  // Banner is an <img> positioned absolutely. It's always full width of
+  // the combat container. Height follows the image's own aspect ratio,
+  // so nothing is letterboxed or stretched.
   if (state.combatBanner) {
-    const band = document.createElement('div');
-    band.className = 'combat-band';
     const img = document.createElement('img');
+    img.className = 'combat-banner';
     img.src = state.combatBanner;
     img.alt = '';
-    band.appendChild(img);
-    c.appendChild(band);
+    c.appendChild(img);
   }
 
   c.appendChild(topButtons());
