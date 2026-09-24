@@ -210,6 +210,17 @@ function applyEffect(eff, targets, card, source) {
       break;
     }
 
+    case 'lastStand': {
+      const handCount = state.hand.length;
+      const dmg = eff.base + handCount;
+      pushLog(`  Last Stand: ${handCount} cards in hand → ${dmg} damage.`);
+      for (const t of targets) {
+        const r = dealDamage(source, t, dmg);
+        pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
+      }
+      break;
+    }
+
     case 'reaper': {
       let totalDealt = 0;
       for (const t of livingEnemies()) {
@@ -441,14 +452,17 @@ function applyEffect(eff, targets, card, source) {
       break;
     }
 
+    // --- Fiend Fire (reworked): put all remaining cards in hand into
+    // discard, deal eff.amount damage per card discarded.
     case 'fiendFire': {
       const n = state.hand.length;
-      const toExhaust = state.hand.splice(0);
-      for (const c of toExhaust) exhaustCard(c);
+      const toDiscard = state.hand.splice(0);
+      for (const c of toDiscard) state.discardPile.push(c);
       const dmg = n * eff.amount;
+      pushLog(`  Fiend Fire: discarded ${n} cards → ${dmg} damage.`);
       for (const t of targets) {
         const r = dealDamage(source, t, dmg);
-        pushLog(`  Fiend Fire: ${t.name} took ${r.dealt} (${n} cards).`);
+        pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
       }
       break;
     }
@@ -479,13 +493,6 @@ function applyEffect(eff, targets, card, source) {
       state.drawPile.push(makeCard(card.defId));
       state.drawPile = shuffle(state.drawPile, state.rng);
       pushLog(`  Copy of ${CARDS[card.defId].name} added to draw.`);
-      break;
-
-    case 'duplicateToPiles':
-      state.discardPile.push(makeCard(card.defId));
-      state.drawPile.push(makeCard(card.defId));
-      state.drawPile = shuffle(state.drawPile, state.rng);
-      pushLog(`  Copies of ${CARDS[card.defId].name} added to discard and draw.`);
       break;
 
     case 'dualWield': {
