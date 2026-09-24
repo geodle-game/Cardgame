@@ -359,6 +359,14 @@ function renderActReward(app) {
   h.textContent = `Act ${state.run.act}`;
   wrap.appendChild(h);
 
+  // Heal line (from nextAct)
+  if (r.healAmount != null) {
+    const heal = document.createElement('p');
+    heal.className = 'heal';
+    heal.textContent = `+${r.healAmount} HP (30% of max)`;
+    wrap.appendChild(heal);
+  }
+
   const gold = document.createElement('p');
   gold.className = 'gold';
   gold.textContent = `+${r.coins} gold`;
