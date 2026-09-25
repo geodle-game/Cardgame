@@ -1129,17 +1129,61 @@ export function spawnSpark(x, y) {
   setTimeout(() => el.remove(), 450);
 }
 
+// -----------------------------------------------------------------
+// Slash: crescent image flies through the target with rotation,
+// scale squash/stretch, two motion-blur ghosts behind it, and a
+// bright radial flash at the peak of the swing.
+// -----------------------------------------------------------------
 export function spawnSlash(targetEl, kind = 'slash') {
   const r = targetEl.getBoundingClientRect();
   const cx = r.left + r.width / 2;
   const cy = r.top + r.height / 2;
 
-  const slash = document.createElement('div');
-  slash.className = 'slash-effect ' + kind;
-  slash.style.left = cx + 'px';
-  slash.style.top = cy + 'px';
-  document.body.appendChild(slash);
-  setTimeout(() => slash.remove(), 600);
+  // Base orientation of the crescent. Art is drawn roughly at -45°.
+  // Vary ±30° so no two swings look the same.
+  const baseAngle = -45 + (Math.random() - 0.5) * 60;
+
+  // Sweep direction is perpendicular to the blade axis. Randomly
+  // flipped so some swings cut top-left→bottom-right, others the reverse.
+  const flip = Math.random() < 0.5 ? 1 : -1;
+  const sweepAngle = (baseAngle + 90) * flip;
+
+  const rad = (sweepAngle * Math.PI) / 180;
+  const dist = 180;
+  const dx = Math.cos(rad) * dist;
+  const dy = Math.sin(rad) * dist;
+
+  // Main crescent + two ghosts.
+  spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 0, false);
+  spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 45, true);
+  spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 90, true);
+
+  // Impact flash at the peak of the main swipe.
+  setTimeout(() => spawnSlashFlash(cx, cy), 130);
+}
+
+function spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, delay, isTrail) {
+  const el = document.createElement('div');
+  el.className = 'slash-effect ' + kind + (isTrail ? ' trail' : ' main');
+  el.style.left = cx + 'px';
+  el.style.top = cy + 'px';
+  el.style.setProperty('--slash-rot', baseAngle.toFixed(1) + 'deg');
+  el.style.setProperty('--from-x', (-dx).toFixed(0) + 'px');
+  el.style.setProperty('--from-y', (-dy).toFixed(0) + 'px');
+  el.style.setProperty('--to-x', dx.toFixed(0) + 'px');
+  el.style.setProperty('--to-y', dy.toFixed(0) + 'px');
+  if (delay) el.style.animationDelay = delay + 'ms';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 900 + delay);
+}
+
+function spawnSlashFlash(cx, cy) {
+  const el = document.createElement('div');
+  el.className = 'slash-flash';
+  el.style.left = cx + 'px';
+  el.style.top = cy + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 300);
 }
 
 export function spawnBlockedIndicator(targetEl) {
