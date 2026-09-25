@@ -38,6 +38,13 @@
     border-color .12s ease,
     box-shadow .18s ease;
   will-change: transform;
+
+  /* Prevent iOS text selection / callout / scroll during long press */
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .card.drawing {
@@ -100,23 +107,6 @@
     translateY(var(--card-offy, 0px))
     rotate(var(--card-rot, 0deg));
   box-shadow: 0 4px 12px rgba(0,0,0,.35);
-}
-
-/* Preview: card pulls straight up out of the hand so the full text is readable. */
-.card.preview {
-  transform:
-    translateY(calc(var(--card-offy, 0px) - 80px))
-    rotate(0deg)
-    scale(1.18);
-  z-index: 100;
-  border-color: #8f6bff;
-  box-shadow:
-    0 24px 60px rgba(143,107,255,.6),
-    0 0 0 2px rgba(143,107,255,.45) inset;
-}
-
-.card.preview::after {
-  box-shadow: 0 0 20px var(--type-color, #6b7280);
 }
 
 /* Type colors */
@@ -247,12 +237,90 @@
 }
 
 /* ============================================================
+   LONG-PRESS INSPECT OVERLAY
+   ============================================================ */
+
+.card-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.8);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 24px;
+  animation: previewOverlayIn .18s ease-out;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@keyframes previewOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.card-preview-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  animation: previewPop .28s cubic-bezier(.2,.9,.3,1.4);
+}
+
+@keyframes previewPop {
+  from { opacity: 0; transform: scale(.82) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.card.card-big {
+  width: 280px;
+  min-height: 420px;
+  padding: 22px;
+  margin: 0;
+  cursor: default;
+  animation: none;
+  transform: none !important;
+  border-radius: 16px;
+  box-shadow:
+    0 30px 80px rgba(0,0,0,.7),
+    0 0 0 2px rgba(143,107,255,.35) inset;
+}
+
+.card.card-big::after {
+  height: 6px;
+}
+
+.card.card-big .cost {
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  box-shadow: 0 4px 12px rgba(255,184,0,.55);
+}
+
+.card.card-big .cname {
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.card.card-big .ctext {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.card-preview-hint {
+  color: #8b93a1;
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* ============================================================
    ATTACK ANIMATIONS
    ============================================================ */
 
-/* Sweeping slash that crosses the target panel diagonally.
-   The container is rotated so its internal horizontal sweep
-   reads as a diagonal slash. */
 .slash-effect {
   position: fixed;
   width: 220px;
@@ -283,7 +351,6 @@
   animation: slashSweep .32s ease-out forwards;
 }
 
-/* Heavy slash for Bash and other bruisers. Wider, warmer. */
 .slash-effect.heavy::before {
   width: 45%;
   background: linear-gradient(
@@ -298,7 +365,6 @@
   box-shadow: 0 0 36px rgba(255,140,80,.95);
 }
 
-/* Magic / reaper style — reserved for future cards. */
 .slash-effect.magic::before {
   width: 40%;
   background: linear-gradient(
@@ -319,7 +385,6 @@
   100% { left: 130%; opacity: 0; }
 }
 
-/* Shield impact + "Blocked" label when damage is absorbed */
 .block-impact {
   position: fixed;
   width: 100px;
@@ -351,7 +416,6 @@
   }
 }
 
-/* "Blocked" floating label */
 .float-text.blocked {
   color: #6fb3ff;
   font-size: 18px;
@@ -364,7 +428,6 @@
   animation: floatUp .95s ease-out forwards;
 }
 
-/* Big damage number */
 .float-text.damage {
   font-size: 36px;
   font-weight: 900;
@@ -380,7 +443,6 @@
    SHARED ANIMATIONS
    ============================================================ */
 
-/* Float-up text used by damage numbers, block indicators, heals. */
 .float-text {
   position: fixed;
   pointer-events: none;
@@ -400,7 +462,6 @@
   100% { opacity: 0; transform: translate(-50%, -70px) scale(1); }
 }
 
-/* Hit spark — small radial burst at impact point. */
 .hit-spark {
   position: fixed;
   width: 60px;
@@ -424,7 +485,6 @@
   100% { transform: scale(1.6); opacity: 0; }
 }
 
-/* Block shield effect when the player gains Block from a card. */
 .block-effect {
   position: fixed;
   width: 80px;
@@ -456,7 +516,6 @@
   }
 }
 
-/* Shake for taking damage */
 .shake {
   animation: shake .4s cubic-bezier(.36,.07,.19,.97);
 }
@@ -468,7 +527,6 @@
   40%, 60% { transform: translateX(8px); }
 }
 
-/* Red flash when hit */
 .hit-flash {
   animation: hitFlash .4s ease-out;
 }
