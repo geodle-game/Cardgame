@@ -43,6 +43,32 @@ export function render() {
   if (state.overlays?.exhaust) renderCardPileOverlay(app, 'Exhausted', state.exhaustPile);
 }
 
+// ---------------- Card text resolution ----------------
+
+// Replaces {key} placeholders in card text with the values from
+// def.liveValues(state). Values wrapped in <span class="live"> so they
+// render green. Empty strings collapse out cleanly.
+function resolveCardText(def) {
+  let text = def.text;
+  if (!def.liveValues) return text;
+  let vals;
+  try {
+    vals = def.liveValues(state) || {};
+  } catch (e) {
+    return text;
+  }
+  for (const [key, raw] of Object.entries(vals)) {
+    const value = raw == null ? '' : String(raw);
+    const html = value
+      ? `<span class="live">${value}</span>`
+      : '';
+    text = text.replace(new RegExp(`\\{${key}\\}`, 'g'), html);
+  }
+  // Clean up any leftover placeholders that weren't provided.
+  text = text.replace(/\{[a-zA-Z0-9_]+\}/g, '');
+  return text;
+}
+
 // ---------------- Gold coin stack helper ----------------
 
 function coinStackClass(gold) {
@@ -581,9 +607,6 @@ function renderCombat(app) {
   const c = document.createElement('div');
   c.className = 'combat';
 
-  // Banner is an <img> positioned absolutely. It's always full width of
-  // the combat container. Height follows the image's own aspect ratio,
-  // so nothing is letterboxed or stretched.
   if (state.combatBanner) {
     const img = document.createElement('img');
     img.className = 'combat-banner';
@@ -802,10 +825,13 @@ function cardFace(defId, { disabled = false, small = false } = {}) {
   el.classList.add(`rarity-${def.rarity || 'common'}`);
   el.classList.add(`type-${def.type || 'skill'}`);
   if (def.retain) el.classList.add('card-retain');
+
+  const text = resolveCardText(def);
+
   el.innerHTML = `
     <div class="cost">${def.unplayable ? '–' : def.cost}</div>
     <div class="cname">${def.name}</div>
-    <div class="ctext">${def.text}</div>
+    <div class="ctext">${text}</div>
   `;
   return el;
 }
