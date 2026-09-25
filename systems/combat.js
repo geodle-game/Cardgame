@@ -1,5 +1,6 @@
 import {
   state, pushLog, startPlayerTurn, livingEnemies, rollIntent, endCombat, cardDef,
+  forEachRelic,
 } from './state.js';
 import { draw, recycleHand, shuffle, makeCard } from './deck.js';
 import {
@@ -7,6 +8,7 @@ import {
   outgoingFlatBonus, tickStatuses,
 } from './statuses.js';
 import { CARDS, cardBaseDamage } from '../data/cards.js';
+import { RELICS } from '../data/relics.js';
 import { ENEMY_CARDS } from '../data/enemy-cards.js';
 
 const combat = {
@@ -126,6 +128,22 @@ function exhaustCard(card) {
   }
 }
 
+// Applies HP loss to the player and fires onLoseHp relic triggers.
+function damagePlayerHp(amount) {
+  const before = state.player.hp;
+  state.player.hp = Math.max(0, state.player.hp - amount);
+  const lost = before - state.player.hp;
+  if (lost <= 0) return 0;
+  combat.hpLostThisCombat += lost;
+  forEachRelic('onLoseHp', (r) => {
+    if (r.goldPerHp) {
+      state.run.gold += r.goldPerHp * lost;
+      pushLog(`  Lucky Coin: +${r.goldPerHp * lost} gold.`);
+    }
+  });
+  return lost;
+}
+
 function resolveTargets(targetKind, explicitId) {
   if (targetKind === 'self' || targetKind === 'none') return [state.player];
   if (targetKind === 'all-enemies') return livingEnemies();
@@ -191,7 +209,7 @@ function applyEffect(eff, targets, card, source) {
       const amount = eff.base + bonus;
       for (const t of targets) {
         const r = dealDamage(source, t, amount);
-        pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}). Rampage now ${amount + eff.per}.`);
+        pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
       }
       combat.rampageBonus[card.uid] = bonus + eff.per;
       break;
@@ -234,9 +252,15 @@ function applyEffect(eff, targets, card, source) {
       break;
     }
 
-    case 'block':
-      source.block += eff.amount;
-      pushLog(`  ${source.name || 'You'} gained ${eff.amount} block.`);
+    case 'block': {
+      let amount = eff.amount;
+      if (source === state.player) {
+        forEachRelic('onBlockGain', (r) => {
+          if (r.blockBonus) amount += r.blockBonus;
+        });
+      }
+      source.block += amount;
+      pushLog(`  ${source.name || 'You'} gained ${amount} block.`);
       if (state.player.juggernaut && source === state.player) {
         const pool = livingEnemies();
         if (pool.length) {
@@ -246,6 +270,7 @@ function applyEffect(eff, targets, card, source) {
         }
       }
       break;
+    }
 
     case 'heal':
       source.hp = Math.min(source.maxHp, source.hp + eff.amount);
@@ -253,8 +278,7 @@ function applyEffect(eff, targets, card, source) {
       break;
 
     case 'loseHpSelf':
-      state.player.hp = Math.max(0, state.player.hp - eff.amount);
-      combat.hpLostThisCombat += eff.amount;
+      damagePlayerHp(eff.amount);
       pushLog(`  Lost ${eff.amount} HP.`);
       if (state.player.rupture) {
         applyStatus(state.player, 'strength', state.player.rupture);
@@ -275,6 +299,14 @@ function applyEffect(eff, targets, card, source) {
     case 'applyStatus':
       for (const t of targets) {
         applyStatus(t, eff.status, eff.amount);
+        if (eff.status === 'strength' && t === state.player) {
+          forEachRelic('onGainStrength', (r) => {
+            if (r.blockOnStrength) {
+              state.player.block += r.blockOnStrength;
+              pushLog(`  Battle Focus: +${r.blockOnStrength} Block.`);
+            }
+          });
+        }
         pushLog(`  ${t.name || 'You'} gained ${eff.amount} ${eff.status}.`);
       }
       break;
@@ -452,8 +484,6 @@ function applyEffect(eff, targets, card, source) {
       break;
     }
 
-    // --- Fiend Fire (reworked): put all remaining cards in hand into
-    // discard, deal eff.amount damage per card discarded.
     case 'fiendFire': {
       const n = state.hand.length;
       const toDiscard = state.hand.splice(0);
@@ -482,17 +512,6 @@ function applyEffect(eff, targets, card, source) {
       state.drawPile = shuffle(state.drawPile.concat(state.discardPile), state.rng);
       state.discardPile = [];
       pushLog(`  Shuffled discard into draw (${state.drawPile.length} cards).`);
-      break;
-
-    case 'duplicateToDiscard':
-      state.discardPile.push(makeCard(card.defId));
-      pushLog(`  Copy of ${CARDS[card.defId].name} added to discard.`);
-      break;
-
-    case 'duplicateToDraw':
-      state.drawPile.push(makeCard(card.defId));
-      state.drawPile = shuffle(state.drawPile, state.rng);
-      pushLog(`  Copy of ${CARDS[card.defId].name} added to draw.`);
       break;
 
     case 'dualWield': {
@@ -572,13 +591,29 @@ export function dealDamage(attacker, target, base, strengthMultiplier) {
   let dmg = (base * scale) + strBonus;
   dmg *= outgoingMultiplier(attacker);
   dmg *= incomingMultiplier(target);
+
+  // Relic: Sharpened Edge — bonus damage vs Vulnerable when the player attacks.
+  if (attacker === state.player && (target.statuses?.vulnerable || 0) > 0) {
+    for (const rid of state.run.relics || []) {
+      const r = RELICS[rid];
+      if (r?.damageVsVulnerable) dmg *= r.damageVsVulnerable;
+    }
+  }
+
   dmg = Math.floor(dmg);
   if (dmg < 0) dmg = 0;
 
   const blocked = Math.min(target.block, dmg);
   target.block -= blocked;
   const dealt = dmg - blocked;
-  target.hp = Math.max(0, target.hp - dealt);
+
+  if (target === state.player) {
+    // Player HP loss — triggers onLoseHp relics.
+    damagePlayerHp(dealt);
+  } else {
+    target.hp = Math.max(0, target.hp - dealt);
+  }
+
   return { dealt, blocked };
 }
 
@@ -595,7 +630,7 @@ export function beginEnemyTurn() {
   for (const c of state.hand) {
     const def = CARDS[c.defId];
     if (def.endOfTurnDamage) {
-      state.player.hp = Math.max(0, state.player.hp - def.endOfTurnDamage);
+      damagePlayerHp(def.endOfTurnDamage);
       pushLog(`${def.name}: took ${def.endOfTurnDamage}.`);
     }
   }
@@ -638,7 +673,7 @@ export function resolveEnemyTurn() {
   if (state.player.perTurnHooks) {
     for (const h of state.player.perTurnHooks) {
       if (h.kind === 'selfDamage') {
-        state.player.hp = Math.max(0, state.player.hp - h.amount);
+        damagePlayerHp(h.amount);
       }
     }
   }
