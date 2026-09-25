@@ -47,11 +47,8 @@
 }
 
 @keyframes cardDraw {
-  0% {
-    opacity: 0;
-    transform: translateY(180px) rotate(0deg) scale(.4);
-  }
-  55% { opacity: 1; }
+  0%   { opacity: 0; transform: translateY(180px) rotate(0deg) scale(.4); }
+  55%  { opacity: 1; }
   100% {
     opacity: 1;
     transform:
@@ -119,9 +116,7 @@
   background: linear-gradient(180deg, #2a3350, #1d2438);
 }
 
-.card.rarity-rare::after {
-  box-shadow: 0 0 12px rgba(111,143,255,.8);
-}
+.card.rarity-rare::after { box-shadow: 0 0 12px rgba(111,143,255,.8); }
 
 .card.rarity-status {
   border-color: #4a4252;
@@ -138,8 +133,6 @@
     scale(1.07);
 }
 
-/* Small variant — used in deck viewer, shop, reward screens.
-   Resets margin/transform so cards space evenly. */
 .card.card-small {
   width: 132px;
   min-height: 180px;
@@ -149,15 +142,12 @@
   transform: none;
 }
 
-.card.card-small:hover {
-  transform: translateY(-4px) scale(1.03);
-}
+.card.card-small:hover { transform: translateY(-4px) scale(1.03); }
 
 .card.card-retain {
   border-color: #6bff9e;
   box-shadow: 0 4px 12px rgba(0,0,0,.35), 0 0 0 1px rgba(107,255,158,.3) inset;
 }
-
 .card.card-retain::after { background: #6bff9e; }
 .card.card-retain .cname { color: #6bff9e; }
 
@@ -269,23 +259,9 @@
 }
 
 .card.card-big::after { height: 6px; }
-
-.card.card-big .cost {
-  width: 44px;
-  height: 44px;
-  font-size: 22px;
-  box-shadow: 0 4px 12px rgba(255,184,0,.55);
-}
-
-.card.card-big .cname {
-  font-size: 22px;
-  line-height: 1.15;
-}
-
-.card.card-big .ctext {
-  font-size: 16px;
-  line-height: 1.5;
-}
+.card.card-big .cost { width: 44px; height: 44px; font-size: 22px; box-shadow: 0 4px 12px rgba(255,184,0,.55); }
+.card.card-big .cname { font-size: 22px; line-height: 1.15; }
+.card.card-big .ctext { font-size: 16px; line-height: 1.5; }
 
 .card-preview-hint {
   color: #8b93a1;
@@ -296,74 +272,174 @@
 }
 
 /* ============================================================
-   ATTACK ANIMATIONS
-   ============================================================ */
+   ATTACK SLASH
+   ============================================================
+   The crescent image flies across the target: enters from one
+   edge of the panel, hits peak brightness / size at center, then
+   exits the opposite edge while rotating through ~130° total.
+   Two ghost copies spawn behind it for real motion-blur.
+*/
 
-/* Slash effect — a bright diagonal sweep across the target panel. */
 .slash-effect {
   position: fixed;
-  width: 260px;
-  height: 260px;
+  width: 300px;
+  height: 300px;
+  margin-left: -150px;
+  margin-top: -150px;
   pointer-events: none;
   z-index: 9999;
-  transform: translate(-50%, -50%) rotate(-45deg);
-  overflow: hidden;
+  background-image: url('../assets/slash.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0;
+  animation: slashStrike .55s cubic-bezier(.15,.85,.3,1) forwards;
+  will-change: transform, opacity, filter;
+  transform-origin: center center;
 }
 
-.slash-effect::before {
-  content: '';
-  position: absolute;
-  top: -20%;
-  left: -80%;
-  width: 55%;
-  height: 140%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255,255,255,.55) 25%,
-    rgba(255,255,255,1) 50%,
-    rgba(255,255,255,.55) 75%,
-    transparent 100%
+.slash-effect.heavy { background-image: url('../assets/slash-heavy.png'); }
+.slash-effect.magic { filter: hue-rotate(180deg); }
+
+.slash-effect.trail {
+  opacity: 0;
+  z-index: 9998;
+  animation-name: slashStrikeTrail;
+}
+
+@keyframes slashStrike {
+  0% {
+    opacity: 0;
+    filter: blur(3px) brightness(1.5);
+    transform:
+      translate(var(--from-x, -170px), var(--from-y, 0))
+      rotate(calc(var(--slash-rot, -45deg) - 55deg))
+      scale(.35, .6);
+  }
+  12% {
+    opacity: .95;
+    filter: blur(1.5px) brightness(2);
+  }
+  38% {
+    opacity: 1;
+    filter: blur(0) brightness(2.6)
+      drop-shadow(0 0 42px rgba(255,255,255,1))
+      drop-shadow(0 0 18px rgba(255,255,255,.9));
+    transform:
+      translate(0, 0)
+      rotate(var(--slash-rot, -45deg))
+      scale(1.45, 1.2);
+  }
+  65% {
+    opacity: 1;
+    filter: blur(0) brightness(1.6)
+      drop-shadow(0 0 24px rgba(255,255,255,.85));
+    transform:
+      translate(
+        calc(var(--to-x, 170px) * .45),
+        calc(var(--to-y, 0) * .45)
+      )
+      rotate(calc(var(--slash-rot, -45deg) + 40deg))
+      scale(1, 1);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(4px) brightness(.6);
+    transform:
+      translate(var(--to-x, 170px), var(--to-y, 0))
+      rotate(calc(var(--slash-rot, -45deg) + 80deg))
+      scale(.4, .75);
+  }
+}
+
+@keyframes slashStrikeTrail {
+  0% {
+    opacity: 0;
+    filter: blur(5px) brightness(1.2);
+    transform:
+      translate(var(--from-x, -170px), var(--from-y, 0))
+      rotate(calc(var(--slash-rot, -45deg) - 55deg))
+      scale(.3, .55);
+  }
+  30% {
+    opacity: .55;
+    filter: blur(4px) brightness(1.4);
+  }
+  60% {
+    opacity: .45;
+    filter: blur(3px) brightness(1.3);
+    transform:
+      translate(
+        calc(var(--to-x, 170px) * .4),
+        calc(var(--to-y, 0) * .4)
+      )
+      rotate(calc(var(--slash-rot, -45deg) + 40deg))
+      scale(.95, .95);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(5px) brightness(.8);
+    transform:
+      translate(var(--to-x, 170px), var(--to-y, 0))
+      rotate(calc(var(--slash-rot, -45deg) + 80deg))
+      scale(.4, .7);
+  }
+}
+
+/* ---------- Impact flash on the target ---------- */
+
+.slash-flash {
+  position: fixed;
+  width: 220px;
+  height: 220px;
+  margin-left: -110px;
+  margin-top: -110px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9996;
+  background: radial-gradient(
+    circle,
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,255,.75) 12%,
+    rgba(255,240,200,.35) 32%,
+    rgba(255,200,150,.1) 55%,
+    transparent 75%
   );
-  filter: blur(1px);
-  box-shadow: 0 0 36px rgba(255,255,255,1);
-  animation: slashSweep .5s ease-out forwards;
+  animation: slashFlash .3s cubic-bezier(.1,.8,.3,1) forwards;
 }
 
-.slash-effect.heavy::before {
-  width: 65%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255,120,60,.75) 25%,
-    rgba(255,235,180,1) 50%,
-    rgba(255,120,60,.75) 75%,
-    transparent 100%
-  );
-  filter: blur(2px);
-  box-shadow: 0 0 48px rgba(255,140,80,1);
+@keyframes slashFlash {
+  0%   { opacity: 1; transform: scale(.15); }
+  35%  { opacity: 1; transform: scale(1.35); }
+  100% { opacity: 0; transform: scale(1.9); }
 }
 
-.slash-effect.magic::before {
-  width: 60%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(180,120,255,.75) 25%,
-    rgba(240,220,255,1) 50%,
-    rgba(180,120,255,.75) 75%,
-    transparent 100%
-  );
-  filter: blur(2px);
-  box-shadow: 0 0 44px rgba(200,140,255,1);
+/* ============================================================
+   BLOCK GAIN EFFECT
+   ============================================================ */
+
+.block-effect {
+  position: fixed;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  animation: blockEffect .95s cubic-bezier(.2,.9,.3,1) forwards;
+  filter: drop-shadow(0 6px 16px rgba(111,179,255,.7));
 }
 
-@keyframes slashSweep {
-  0%   { left: -80%; opacity: 0; }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { left: 145%; opacity: 0; }
+@keyframes blockEffect {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4) rotate(-15deg); }
+  30%  { opacity: 1; transform: translate(-50%, -65%) scale(1.15) rotate(-8deg); }
+  70%  { opacity: 1; transform: translate(-50%, -80%) scale(1) rotate(-8deg); }
+  100% { opacity: 0; transform: translate(-50%, -130%) scale(1.05) rotate(-8deg); }
 }
+
+/* ============================================================
+   BLOCKED INDICATOR + DAMAGE NUMBER + SPARK
+   ============================================================ */
 
 .block-impact {
   position: fixed;
@@ -384,33 +460,6 @@
   100% { opacity: 0; transform: translate(-50%, -75%) scale(1.2) rotate(0deg); }
 }
 
-.float-text.blocked {
-  color: #6fb3ff;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  text-shadow:
-    0 0 12px rgba(111,179,255,.9),
-    0 2px 4px rgba(0,0,0,.9);
-  animation: floatUp .95s ease-out forwards;
-}
-
-.float-text.damage {
-  font-size: 36px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  color: #ff6b6b;
-  text-shadow:
-    0 0 20px rgba(255,80,80,.95),
-    0 0 8px rgba(255,150,80,.8),
-    0 2px 4px rgba(0,0,0,.95);
-}
-
-/* ============================================================
-   SHARED ANIMATIONS
-   ============================================================ */
-
 .float-text {
   position: fixed;
   pointer-events: none;
@@ -423,6 +472,28 @@
 
 .float-text.heal  { color: #6bff9e; font-size: 24px; }
 .float-text.block { color: #6fb3ff; font-size: 22px; }
+
+.float-text.blocked {
+  color: #6fb3ff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 12px rgba(111,179,255,.9),
+    0 2px 4px rgba(0,0,0,.9);
+}
+
+.float-text.damage {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #ff6b6b;
+  text-shadow:
+    0 0 20px rgba(255,80,80,.95),
+    0 0 8px rgba(255,150,80,.8),
+    0 2px 4px rgba(0,0,0,.95);
+}
 
 @keyframes floatUp {
   0%   { opacity: 0; transform: translate(-50%, 0) scale(.6); }
@@ -451,25 +522,6 @@
 @keyframes sparkOut {
   0%   { transform: scale(.2); opacity: 1; }
   100% { transform: scale(1.6); opacity: 0; }
-}
-
-.block-effect {
-  position: fixed;
-  width: 80px;
-  height: 80px;
-  object-fit: contain;
-  pointer-events: none;
-  z-index: 9999;
-  transform: translate(-50%, -50%);
-  animation: blockEffect .95s cubic-bezier(.2,.9,.3,1) forwards;
-  filter: drop-shadow(0 6px 16px rgba(111,179,255,.7));
-}
-
-@keyframes blockEffect {
-  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4) rotate(-15deg); }
-  30%  { opacity: 1; transform: translate(-50%, -65%) scale(1.15) rotate(-8deg); }
-  70%  { opacity: 1; transform: translate(-50%, -80%) scale(1) rotate(-8deg); }
-  100% { opacity: 0; transform: translate(-50%, -130%) scale(1.05) rotate(-8deg); }
 }
 
 .shake {
