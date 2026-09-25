@@ -1,13 +1,19 @@
 .hand {
   display: flex;
-  gap: 10px;
+  gap: 4px;
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-end;
   flex: 1;
-  perspective: 900px;
+  perspective: 1200px;
+  padding-bottom: 12px;
+  min-height: 260px;
 }
 
+/* Base card. Arc position is driven by CSS vars set inline by render.js:
+   --card-rot   rotation in degrees (0 for middle card, ±10 for edges)
+   --card-offy  vertical drop in px (0 for middle, ~18 for edges)
+   --card-delay stagger delay for the draw animation */
 .card {
   width: 156px;
   min-height: 240px;
@@ -19,11 +25,41 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
   box-shadow: 0 4px 12px rgba(0,0,0,.35);
-  animation: cardIn .25s ease-out backwards;
   position: relative;
   overflow: hidden;
+  margin: 0 -18px;
+  transform-origin: 50% 100%;
+  transform:
+    translateY(var(--card-offy, 0px))
+    rotate(var(--card-rot, 0deg));
+  transition:
+    transform .18s cubic-bezier(.2,.9,.3,1.4),
+    border-color .12s ease,
+    box-shadow .18s ease;
+  will-change: transform;
+}
+
+.card.drawing {
+  animation: cardDraw .45s cubic-bezier(.2,.9,.3,1.4) backwards;
+  animation-delay: var(--card-delay, 0ms);
+}
+
+@keyframes cardDraw {
+  0% {
+    opacity: 0;
+    transform: translateY(140px) rotate(0deg) scale(.5);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform:
+      translateY(var(--card-offy, 0px))
+      rotate(var(--card-rot, 0deg))
+      scale(1);
+  }
 }
 
 .card::before {
@@ -45,9 +81,12 @@
 }
 
 .card:hover:not(.disabled) {
-  transform: translateY(-12px) scale(1.05);
-  box-shadow: 0 16px 30px rgba(143,107,255,.35);
-  z-index: 10;
+  transform:
+    translateY(calc(var(--card-offy, 0px) - 22px))
+    rotate(var(--card-rot, 0deg))
+    scale(1.06);
+  box-shadow: 0 16px 30px rgba(143,107,255,.4);
+  z-index: 40;
 }
 
 .card.disabled {
@@ -57,8 +96,27 @@
 }
 
 .card.disabled:hover {
-  transform: none;
+  transform:
+    translateY(var(--card-offy, 0px))
+    rotate(var(--card-rot, 0deg));
   box-shadow: 0 4px 12px rgba(0,0,0,.35);
+}
+
+/* Preview: card pulls out of the hand so the full text is readable. */
+.card.preview {
+  transform:
+    translateY(calc(var(--card-offy, 0px) - 70px))
+    rotate(0deg)
+    scale(1.15);
+  z-index: 100;
+  border-color: #8f6bff;
+  box-shadow:
+    0 20px 50px rgba(143,107,255,.55),
+    0 0 0 2px rgba(143,107,255,.4) inset;
+}
+
+.card.preview::after {
+  box-shadow: 0 0 16px var(--type-color, #6b7280);
 }
 
 /* Type colors */
@@ -96,14 +154,24 @@
 .card.pending {
   border-color: #ff8f6b;
   box-shadow: 0 0 0 2px rgba(255,143,107,.4), 0 16px 30px rgba(255,143,107,.3);
-  transform: translateY(-12px) scale(1.05);
+  transform:
+    translateY(calc(var(--card-offy, 0px) - 22px))
+    rotate(var(--card-rot, 0deg))
+    scale(1.06);
 }
 
+/* Small variant (deck viewer, shop, reward screens) */
 .card.card-small {
   width: 132px;
   min-height: 180px;
   padding: 10px;
+  margin: 0;
   animation: none;
+  transform: none;
+}
+
+.card.card-small:hover {
+  transform: translateY(-4px) scale(1.03);
 }
 
 /* Retain */
@@ -120,20 +188,18 @@
   color: #6bff9e;
 }
 
-/* Play animation */
+/* Play animation — card flies off when played */
 .card.playing {
   animation: cardFly .45s cubic-bezier(.4,0,.5,1) forwards;
   pointer-events: none;
 }
 
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(40px) rotate(-8deg); }
-  to   { opacity: 1; transform: translateY(0) rotate(0); }
-}
-
 @keyframes cardFly {
   0% {
-    transform: translate(0, 0) scale(1) rotate(0);
+    transform:
+      translateY(calc(var(--card-offy, 0px) - 30px))
+      rotate(0deg)
+      scale(1.1);
     opacity: 1;
     filter: drop-shadow(0 0 0 rgba(255,143,107,0));
   }
@@ -175,7 +241,6 @@
   line-height: 1.4;
 }
 
-/* Live / computed values rendered inside card text */
 .ctext .live {
   color: #6bff9e;
   font-weight: 700;
