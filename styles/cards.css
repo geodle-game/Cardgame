@@ -245,3 +245,235 @@
   color: #6bff9e;
   font-weight: 700;
 }
+
+/* ============================================================
+   ATTACK ANIMATIONS
+   ============================================================ */
+
+/* Sweeping slash that crosses the target panel diagonally.
+   The container is rotated so its internal horizontal sweep
+   reads as a diagonal slash. */
+.slash-effect {
+  position: fixed;
+  width: 220px;
+  height: 220px;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  overflow: hidden;
+}
+
+.slash-effect::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -60%;
+  width: 30%;
+  height: 140%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,.55) 40%,
+    rgba(255,255,255,.95) 50%,
+    rgba(255,255,255,.55) 60%,
+    transparent
+  );
+  filter: blur(1px);
+  box-shadow: 0 0 24px rgba(255,255,255,.85);
+  animation: slashSweep .32s ease-out forwards;
+}
+
+/* Heavy slash for Bash and other bruisers. Wider, warmer. */
+.slash-effect.heavy::before {
+  width: 45%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,120,60,.65) 35%,
+    rgba(255,230,160,.95) 50%,
+    rgba(255,120,60,.65) 65%,
+    transparent
+  );
+  filter: blur(2px);
+  box-shadow: 0 0 36px rgba(255,140,80,.95);
+}
+
+/* Magic / reaper style — reserved for future cards. */
+.slash-effect.magic::before {
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(180,120,255,.55) 35%,
+    rgba(240,220,255,.95) 50%,
+    rgba(180,120,255,.55) 65%,
+    transparent
+  );
+  filter: blur(2px);
+  box-shadow: 0 0 32px rgba(200,140,255,.95);
+}
+
+@keyframes slashSweep {
+  0%   { left: -60%; opacity: 0; }
+  25%  { opacity: 1; }
+  100% { left: 130%; opacity: 0; }
+}
+
+/* Shield impact + "Blocked" label when damage is absorbed */
+.block-impact {
+  position: fixed;
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 24px rgba(111,179,255,.95));
+  animation: blockImpact .8s cubic-bezier(.2,.9,.3,1.4) forwards;
+}
+
+@keyframes blockImpact {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.3) rotate(-20deg);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.45) rotate(0deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -75%) scale(1.2) rotate(0deg);
+  }
+}
+
+/* "Blocked" floating label */
+.float-text.blocked {
+  color: #6fb3ff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 12px rgba(111,179,255,.9),
+    0 2px 4px rgba(0,0,0,.9);
+  animation: floatUp .95s ease-out forwards;
+}
+
+/* Big damage number */
+.float-text.damage {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #ff6b6b;
+  text-shadow:
+    0 0 20px rgba(255,80,80,.95),
+    0 0 8px rgba(255,150,80,.8),
+    0 2px 4px rgba(0,0,0,.95);
+}
+
+/* ============================================================
+   SHARED ANIMATIONS
+   ============================================================ */
+
+/* Float-up text used by damage numbers, block indicators, heals. */
+.float-text {
+  position: fixed;
+  pointer-events: none;
+  font-weight: 700;
+  z-index: 9998;
+  transform: translate(-50%, 0);
+  animation: floatUp .9s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+}
+
+.float-text.heal  { color: #6bff9e; font-size: 24px; }
+.float-text.block { color: #6fb3ff; font-size: 22px; }
+
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.6); }
+  20%  { opacity: 1; transform: translate(-50%, -14px) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -70px) scale(1); }
+}
+
+/* Hit spark — small radial burst at impact point. */
+.hit-spark {
+  position: fixed;
+  width: 60px;
+  height: 60px;
+  margin-left: -30px;
+  margin-top: -30px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255,220,150,.95) 0%,
+    rgba(255,120,60,.7) 30%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 9997;
+  animation: sparkOut .4s ease-out forwards;
+}
+
+@keyframes sparkOut {
+  0%   { transform: scale(.2); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Block shield effect when the player gains Block from a card. */
+.block-effect {
+  position: fixed;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  animation: blockEffect .95s cubic-bezier(.2,.9,.3,1) forwards;
+  filter: drop-shadow(0 6px 16px rgba(111,179,255,.7));
+}
+
+@keyframes blockEffect {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.4) rotate(-15deg);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -65%) scale(1.15) rotate(-8deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -80%) scale(1) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -130%) scale(1.05) rotate(-8deg);
+  }
+}
+
+/* Shake for taking damage */
+.shake {
+  animation: shake .4s cubic-bezier(.36,.07,.19,.97);
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-8px); }
+  40%, 60% { transform: translateX(8px); }
+}
+
+/* Red flash when hit */
+.hit-flash {
+  animation: hitFlash .4s ease-out;
+}
+
+@keyframes hitFlash {
+  0%   { background-color: rgba(255,80,80,.6); }
+  100% { background-color: transparent; }
+}
