@@ -19,10 +19,17 @@ import { ENEMY_CARDS } from '../data/enemy-cards.js';
 import { NODE_TYPES } from '../data/maps.js';
 import { getNode, reachableFrom, startingNodes } from '../systems/map.js';
 
-let _lastCardClickAt = 0;
+// Long-press duration before the inspect overlay appears (ms).
+const LONG_PRESS_MS = 450;
+// Movement (px) above which a press is treated as a drag, not a tap.
+const DRAG_THRESHOLD = 14;
 
 export function render() {
   const app = document.getElementById('app');
+
+  // A re-render always kills any open inspect overlay.
+  document.querySelectorAll('.card-preview-overlay').forEach(el => el.remove());
+
   app.innerHTML = '';
 
   switch (state.screen) {
@@ -686,11 +693,6 @@ function renderCombat(app) {
     hint.className = 'target-hint';
     hint.textContent = 'Choose a target…';
     c.appendChild(hint);
-  } else if (state.previewCardUid) {
-    const hint = document.createElement('div');
-    hint.className = 'target-hint preview-hint';
-    hint.textContent = 'Tap again to play · Tap elsewhere to cancel';
-    c.appendChild(hint);
   }
 
   const hand = document.createElement('div');
@@ -711,13 +713,6 @@ function renderCombat(app) {
   c.appendChild(hand);
 
   c.appendChild(bottomBar());
-
-  c.addEventListener('click', () => {
-    if (state.previewCardUid) {
-      state.previewCardUid = null;
-      render();
-    }
-  });
 
   app.appendChild(c);
 
@@ -775,14 +770,12 @@ function enemyPanel(e) {
   `;
 
   if (!dead) {
-    el.addEventListener('click', (ev) => {
-      ev.stopPropagation();
+    el.addEventListener('click', () => {
       if (state.pendingCardUid) {
         const card = state.hand.find(c => c.uid === state.pendingCardUid);
         if (card) { doPlayCard(card, null, e.uid); return; }
       }
       state.selectedEnemyId = e.uid;
-      state.previewCardUid = null;
       render();
     });
   }
@@ -816,7 +809,6 @@ function statusRow(statuses) {
 function tryPlayCard(card, sourceEl) {
   const def = CARDS[card.defId];
   if (!canPlay(card)) return;
-  state.previewCardUid = null;
   if (def.target === 'enemy') {
     const living = state.enemies.filter(x => x.hp > 0);
     if (living.length > 1) { selectCardForPlay(card); render(); return; }
@@ -825,33 +817,96 @@ function tryPlayCard(card, sourceEl) {
   doPlayCard(card, sourceEl, null);
 }
 
+// Long-press overlay: enlarged card, tap anywhere to dismiss.
+function showPreviewOverlay(card) {
+  document.querySelectorAll('.card-preview-overlay').forEach(el => el.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'card-preview-overlay';
+
+  let dismissable = false;
+  setTimeout(() => { dismissable = true; }, 250);
+
+  const dismiss = (e) => {
+    if (!dismissable) return;
+    if (e) e.stopPropagation();
+    overlay.remove();
+  };
+
+  overlay.addEventListener('pointerdown', dismiss);
+  overlay.addEventListener('click', dismiss);
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'card-preview-wrapper';
+  wrapper.appendChild(cardFace(card.defId, { big: true }));
+
+  const hint = document.createElement('div');
+  hint.className = 'card-preview-hint';
+  hint.textContent = 'Tap anywhere to close';
+  wrapper.appendChild(hint);
+
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
+}
+
 function cardInHand(card) {
   const def = CARDS[card.defId];
   const el = cardFace(card.defId);
   if (!canPlay(card)) el.classList.add('disabled');
   if (state.pendingCardUid === card.uid) el.classList.add('pending');
-  if (state.previewCardUid === card.uid) el.classList.add('preview');
 
   if (state.newlyDrawn?.has(card.uid)) {
     el.classList.add('drawing');
     state.newlyDrawn.delete(card.uid);
   }
 
-  el.addEventListener('click', (e) => {
-    e.stopPropagation();
+  let pressTimer = null;
+  let longPressFired = false;
+  let startX = 0;
+  let startY = 0;
+  let active = false;
+
+  el.addEventListener('pointerdown', (e) => {
+    if (!canPlay(card)) return;
+    active = true;
+    longPressFired = false;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    if (pressTimer) clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      longPressFired = true;
+      pressTimer = null;
+      showPreviewOverlay(card);
+    }, LONG_PRESS_MS);
+  });
+
+  el.addEventListener('pointerup', (e) => {
+    if (!active) return;
+    active = false;
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    if (longPressFired) return;
     if (!canPlay(card)) return;
 
-    const now = Date.now();
-    if (now - _lastCardClickAt < 150) return;
-    _lastCardClickAt = now;
+    const dx = Math.abs(e.clientX - startX);
+    const dy = Math.abs(e.clientY - startY);
+    if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) return;
 
-    if (state.previewCardUid === card.uid) {
-      tryPlayCard(card, el);
-      return;
-    }
-    state.previewCardUid = card.uid;
-    render();
+    tryPlayCard(card, el);
   });
+
+  el.addEventListener('pointerleave', () => {
+    active = false;
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+  });
+
+  el.addEventListener('pointercancel', () => {
+    active = false;
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+  });
+
+  // Suppress native drag/context behaviors on long press.
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
 
   return el;
 }
@@ -860,7 +915,7 @@ function doPlayCard(card, sourceEl, targetUid) {
   const def = CARDS[card.defId];
   const targetEl = targetUid
     ? document.querySelector(`[data-panel="enemy"][data-uid="${targetUid}"]`)
-    : document.querySelector(`[data-panel="player"]`);
+    : document.querySelector('[data-panel="player"]');
 
   if (sourceEl) {
     const sRect = sourceEl.getBoundingClientRect();
@@ -873,18 +928,14 @@ function doPlayCard(card, sourceEl, targetUid) {
   }
 
   setTimeout(() => {
-    // Clear hit log so we only animate what THIS card does.
     state.lastHits = [];
     const wasPlayed = playCard(card, targetUid);
     const hits = state.lastHits || [];
     state.lastHits = [];
 
     render();
-
-    // Animate each hit with a small stagger between them.
     animateHits(hits);
 
-    // Block indicator on player for cards that grant block.
     const hasBlock = def.effects.some(e => e.kind === 'block');
     if (hasBlock) {
       const p = document.querySelector('[data-panel="player"]');
@@ -919,12 +970,13 @@ function doPlayCard(card, sourceEl, targetUid) {
   }, 220);
 }
 
-function cardFace(defId, { disabled = false, small = false } = {}) {
+function cardFace(defId, { disabled = false, small = false, big = false } = {}) {
   const def = CARDS[defId];
   const el = document.createElement('div');
   el.className = 'card';
   if (disabled) el.classList.add('disabled');
   if (small) el.classList.add('card-small');
+  if (big) el.classList.add('card-big');
   el.classList.add(`rarity-${def.rarity || 'common'}`);
   el.classList.add(`type-${def.type || 'skill'}`);
   if (def.retain) el.classList.add('card-retain');
@@ -944,8 +996,7 @@ function bottomBar() {
   const bar = document.createElement('div');
   bar.className = 'bar';
 
-  bar.appendChild(pileEl('Draw', state.drawPile.length, (e) => {
-    e.stopPropagation();
+  bar.appendChild(pileEl('Draw', state.drawPile.length, () => {
     toggleDrawOverlay(); render();
   }));
 
@@ -953,10 +1004,8 @@ function bottomBar() {
   btn.className = 'btn';
   btn.textContent = 'End Turn';
   btn.disabled = state.turn !== 'player' || state.over;
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
+  btn.addEventListener('click', () => {
     state.pendingCardUid = null;
-    state.previewCardUid = null;
     state.lastHits = [];
     beginEnemyTurn();
     render();
@@ -970,14 +1019,12 @@ function bottomBar() {
   });
   bar.appendChild(btn);
 
-  bar.appendChild(pileEl('Discard', state.discardPile.length, (e) => {
-    e.stopPropagation();
+  bar.appendChild(pileEl('Discard', state.discardPile.length, () => {
     toggleDiscardOverlay(); render();
   }));
 
   if (state.exhaustPile.length) {
-    bar.appendChild(pileEl('Exhaust', state.exhaustPile.length, (e) => {
-      e.stopPropagation();
+    bar.appendChild(pileEl('Exhaust', state.exhaustPile.length, () => {
       toggleExhaustOverlay(); render();
     }));
   }
@@ -1039,8 +1086,6 @@ function getPanelElement(uid) {
   return document.querySelector(`[data-panel="enemy"][data-uid="${uid}"]`);
 }
 
-// Fires the hit sequence for each damage event, staggered so multi-hit
-// cards show distinct numbers.
 function animateHits(hits) {
   hits.forEach((hit, i) => {
     setTimeout(() => {
@@ -1052,9 +1097,7 @@ function animateHits(hits) {
       const r = targetEl.getBoundingClientRect();
       spawnSpark(r.left + r.width / 2, r.top + r.height / 2);
 
-      if (hit.blocked > 0) {
-        spawnBlockedIndicator(targetEl);
-      }
+      if (hit.blocked > 0) spawnBlockedIndicator(targetEl);
       if (hit.dealt > 0) {
         spawnDamageNumber(targetEl, hit.dealt);
         shakePanel(hit.targetUid);
@@ -1089,7 +1132,6 @@ export function spawnSpark(x, y) {
   setTimeout(() => el.remove(), 450);
 }
 
-// Sword slash sweeping across the target panel.
 export function spawnSlash(targetEl, kind = 'slash') {
   const r = targetEl.getBoundingClientRect();
   const cx = r.left + r.width / 2;
@@ -1103,7 +1145,6 @@ export function spawnSlash(targetEl, kind = 'slash') {
   setTimeout(() => slash.remove(), 400);
 }
 
-// Shield impact + "Blocked" text when damage is absorbed.
 export function spawnBlockedIndicator(targetEl) {
   const r = targetEl.getBoundingClientRect();
   const cx = r.left + r.width / 2;
@@ -1126,7 +1167,6 @@ export function spawnBlockedIndicator(targetEl) {
   setTimeout(() => label.remove(), 950);
 }
 
-// Big damage number floating above the target.
 export function spawnDamageNumber(targetEl, amount) {
   const r = targetEl.getBoundingClientRect();
   const jitterX = (Math.random() - 0.5) * 40;
@@ -1154,7 +1194,7 @@ export function spawnBlockEffect(playerEl) {
 }
 
 export function shakePanel(uid) {
-  const sel = uid ? `[data-panel="enemy"][data-uid="${uid}"]` : `[data-panel="player"]`;
+  const sel = uid ? `[data-panel="enemy"][data-uid="${uid}"]` : '[data-panel="player"]';
   const el = document.querySelector(sel);
   if (!el) return;
   el.classList.add('shake');
@@ -1162,7 +1202,7 @@ export function shakePanel(uid) {
 }
 
 export function flashPanel(uid) {
-  const sel = uid ? `[data-panel="enemy"][data-uid="${uid}"]` : `[data-panel="player"]`;
+  const sel = uid ? `[data-panel="enemy"][data-uid="${uid}"]` : '[data-panel="player"]';
   const el = document.querySelector(sel);
   if (!el) return;
   el.classList.add('hit-flash');
