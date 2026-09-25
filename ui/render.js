@@ -684,18 +684,37 @@ function renderCombat(app) {
     hint.className = 'target-hint';
     hint.textContent = 'Choose a target…';
     c.appendChild(hint);
+  } else if (state.previewCardUid) {
+    const hint = document.createElement('div');
+    hint.className = 'target-hint preview-hint';
+    hint.textContent = 'Tap again to play';
+    c.appendChild(hint);
   }
 
   const hand = document.createElement('div');
   hand.className = 'hand';
+  const n = state.hand.length;
   state.hand.forEach((card, i) => {
     const el = cardInHand(card);
-    el.style.animationDelay = `${i * 40}ms`;
+    const t = n === 1 ? 0 : (i - (n - 1) / 2) / ((n - 1) / 2);
+    const maxAngle = 11;
+    const maxDrop = 20;
+    el.style.setProperty('--card-rot', (t * maxAngle).toFixed(2) + 'deg');
+    el.style.setProperty('--card-offy', (Math.abs(t) * maxDrop).toFixed(1) + 'px');
+    el.style.setProperty('--card-delay', (i * 45) + 'ms');
     hand.appendChild(el);
   });
   c.appendChild(hand);
 
   c.appendChild(bottomBar());
+
+  // Click on empty space clears the preview.
+  c.addEventListener('click', () => {
+    if (state.previewCardUid) {
+      state.previewCardUid = null;
+      render();
+    }
+  });
 
   app.appendChild(c);
 
@@ -753,12 +772,14 @@ function enemyPanel(e) {
   `;
 
   if (!dead) {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
       if (state.pendingCardUid) {
         const card = state.hand.find(c => c.uid === state.pendingCardUid);
         if (card) { doPlayCard(card, null, e.uid); return; }
       }
       state.selectedEnemyId = e.uid;
+      state.previewCardUid = null;
       render();
     });
   }
@@ -789,21 +810,52 @@ function statusRow(statuses) {
     .join('')}</div>`;
 }
 
+function tryPlayCard(card, sourceEl) {
+  const def = CARDS[card.defId];
+  if (!canPlay(card)) return;
+  state.previewCardUid = null;
+  if (def.target === 'enemy') {
+    const living = state.enemies.filter(x => x.hp > 0);
+    if (living.length > 1) { selectCardForPlay(card); render(); return; }
+    if (living.length === 1) { doPlayCard(card, sourceEl, living[0].uid); return; }
+  }
+  doPlayCard(card, sourceEl, null);
+}
+
 function cardInHand(card) {
   const def = CARDS[card.defId];
   const el = cardFace(card.defId);
   if (!canPlay(card)) el.classList.add('disabled');
   if (state.pendingCardUid === card.uid) el.classList.add('pending');
+  if (state.previewCardUid === card.uid) el.classList.add('preview');
 
-  el.addEventListener('click', () => {
+  // Draw animation: only newly drawn cards animate.
+  if (state.newlyDrawn?.has(card.uid)) {
+    el.classList.add('drawing');
+    state.newlyDrawn.delete(card.uid);
+  }
+
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
     if (!canPlay(card)) return;
-    if (def.target === 'enemy') {
-      const living = state.enemies.filter(x => x.hp > 0);
-      if (living.length > 1) { selectCardForPlay(card); render(); return; }
-      if (living.length === 1) { doPlayCard(card, el, living[0].uid); return; }
+
+    // If this card is already previewed, tapping it again plays it.
+    if (state.previewCardUid === card.uid) {
+      tryPlayCard(card, el);
+      return;
     }
-    doPlayCard(card, el, null);
+    // Otherwise, preview it.
+    state.previewCardUid = card.uid;
+    render();
   });
+
+  // Double-tap also plays directly.
+  el.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    if (!canPlay(card)) return;
+    tryPlayCard(card, el);
+  });
+
   return el;
 }
 
@@ -891,7 +943,8 @@ function bottomBar() {
   const bar = document.createElement('div');
   bar.className = 'bar';
 
-  bar.appendChild(pileEl('Draw', state.drawPile.length, () => {
+  bar.appendChild(pileEl('Draw', state.drawPile.length, (e) => {
+    e.stopPropagation();
     toggleDrawOverlay(); render();
   }));
 
@@ -899,20 +952,24 @@ function bottomBar() {
   btn.className = 'btn';
   btn.textContent = 'End Turn';
   btn.disabled = state.turn !== 'player' || state.over;
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
     state.pendingCardUid = null;
+    state.previewCardUid = null;
     beginEnemyTurn();
     render();
     setTimeout(() => { resolveEnemyTurn(); render(); }, 450);
   });
   bar.appendChild(btn);
 
-  bar.appendChild(pileEl('Discard', state.discardPile.length, () => {
+  bar.appendChild(pileEl('Discard', state.discardPile.length, (e) => {
+    e.stopPropagation();
     toggleDiscardOverlay(); render();
   }));
 
   if (state.exhaustPile.length) {
-    bar.appendChild(pileEl('Exhaust', state.exhaustPile.length, () => {
+    bar.appendChild(pileEl('Exhaust', state.exhaustPile.length, (e) => {
+      e.stopPropagation();
       toggleExhaustOverlay(); render();
     }));
   }
