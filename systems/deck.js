@@ -1,7 +1,7 @@
 let uidCounter = 0;
 
-export function makeCard(defId) {
-  return { uid: `c${++uidCounter}`, defId };
+export function makeCard(defId, enchant = null) {
+  return { uid: `c${++uidCounter}`, defId, enchant };
 }
 
 export function makeEnemyCard(defId) {
