@@ -27,25 +27,26 @@ export function shuffle(arr, rng = Math.random) {
   return a;
 }
 
-// Draw n. If the draw pile runs dry mid-draw, shuffle the discard pile in
-// to keep drawing. No other reshuffle happens here.
 export function draw(state, n) {
+  if (!state.newlyDrawn) state.newlyDrawn = new Set();
   for (let i = 0; i < n; i++) {
     if (state.drawPile.length === 0) {
-      if (state.discardPile.length === 0) return;
-      state.drawPile = shuffle(state.discardPile, state.rng);
-      state.discardPile = [];
+      if (state.discardPile.length > 0) {
+        state.drawPile = shuffle(state.discardPile, state.rng);
+        state.discardPile = [];
+      } else if (state.exhaustPile.length > 0) {
+        state.drawPile = shuffle(state.exhaustPile, state.rng);
+        state.exhaustPile = [];
+      } else {
+        return;
+      }
     }
-    state.hand.push(state.drawPile.pop());
+    const card = state.drawPile.pop();
+    state.hand.push(card);
+    state.newlyDrawn.add(card.uid);
   }
 }
 
-// End of turn.
-// 1. Cards with retain:true always stay.
-// 2. Plus a random 50% of the rest stay (rounded down).
-// 3. The other 50% go to the discard pile.
-// 4. If the draw pile has fewer than 5 cards left, shuffle the entire
-//    discard pile into it.
 export function recycleHand(state) {
   const retained = [];
   const rest = [];
@@ -68,7 +69,6 @@ export function recycleHand(state) {
 
   state.hand = retained;
 
-  // Low-pile reset at end of turn
   if (state.drawPile.length < 5 && state.discardPile.length > 0) {
     state.drawPile = shuffle(
       state.drawPile.concat(state.discardPile),
