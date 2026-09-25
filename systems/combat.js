@@ -188,6 +188,35 @@ function applyEffect(eff, targets, card, source) {
       break;
     }
 
+    // Deal a percentage of the target's MAX HP. Ignores Strength, Weak,
+    // Vulnerable, and damage scale. Only blocked by Block.
+    case 'damagePercentMaxHp': {
+      const pct = eff.percent ?? 0.5;
+      for (const t of targets) {
+        const base = Math.floor(t.maxHp * pct);
+        const blocked = Math.min(t.block, base);
+        t.block -= blocked;
+        const dealt = base - blocked;
+
+        if (!state.lastHits) state.lastHits = [];
+        state.lastHits.push({
+          attackerUid: source.id === 'player' ? 'player' : source.uid,
+          targetUid:   t.id === 'player' ? 'player' : t.uid,
+          dealt,
+          blocked,
+          animation: state.currentAnimation || 'slash',
+        });
+
+        if (t === state.player) {
+          damagePlayerHp(dealt);
+        } else {
+          t.hp = Math.max(0, t.hp - dealt);
+        }
+        pushLog(`  ${t.name} took ${dealt} (blocked ${blocked}).`);
+      }
+      break;
+    }
+
     case 'damageEqualToBlock': {
       const amount = Math.floor(source.block * (eff.multiplier ?? 1));
       for (const t of targets) {
@@ -609,7 +638,6 @@ export function dealDamage(attacker, target, base, strengthMultiplier) {
   target.block -= blocked;
   const dealt = dmg - blocked;
 
-  // Push the hit into the log so the renderer can animate each hit.
   if (!state.lastHits) state.lastHits = [];
   state.lastHits.push({
     attackerUid: attacker.id === 'player' ? 'player' : attacker.uid,
