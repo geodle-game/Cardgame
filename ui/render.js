@@ -8,6 +8,7 @@ import {
   closeOverlays,
   nextAct, claimActReward, takeActRewardCard, skipActRewardCard,
   takeActRewardRelic, finishRun,
+  pickTreasureRelic, skipTreasure,
 } from '../systems/state.js';
 import {
   canPlay, playCard, selectCardForPlay, beginEnemyTurn, resolveEnemyTurn,
@@ -29,6 +30,7 @@ export function render() {
     case 'combat':     renderCombat(app);     break;
     case 'reward':     renderReward(app);     break;
     case 'actReward':  renderActReward(app);  break;
+    case 'treasure':   renderTreasure(app);   break;
     case 'event':      renderEvent(app);      break;
     case 'shop':       renderShop(app);       break;
     case 'rest':       renderRest(app);       break;
@@ -63,7 +65,6 @@ function resolveCardText(def, ctx) {
   return text;
 }
 
-// Builds the context for player card text (attacker = player, target = selected enemy).
 function playerCardContext() {
   const attacker = state.player;
   const living = (state.enemies || []).filter(e => e.hp > 0);
@@ -71,7 +72,6 @@ function playerCardContext() {
   return { attacker, target };
 }
 
-// Builds the context for enemy card text (attacker = enemy, target = player).
 function enemyCardContext(enemy) {
   return { attacker: enemy, target: state.player };
 }
@@ -179,9 +179,9 @@ function renderRelicOverlay(app) {
   for (const id of state.run.relics) {
     const r = RELICS[id];
     const el = document.createElement('div');
-    el.className = 'relic-row-item';
+    el.className = `relic-row-item rarity-${r.rarity || 'common'}`;
     el.innerHTML = `
-      <div class="relic-name">${r.name}</div>
+      <div class="relic-name">${r.name} <span class="relic-rarity">${r.rarity || 'common'}</span></div>
       <div class="relic-text">${r.text}</div>
     `;
     list.appendChild(el);
@@ -208,6 +208,18 @@ function overlayHeader(title, onClose) {
 
 // ---------------- Relic pick / deck view ----------------
 
+function relicCard(r, onClick) {
+  const el = document.createElement('button');
+  el.className = `relic-card rarity-${r.rarity || 'common'}`;
+  el.innerHTML = `
+    <div class="relic-rarity-badge">${r.rarity || 'common'}</div>
+    <div class="relic-name">${r.name}</div>
+    <div class="relic-text">${r.text}</div>
+  `;
+  if (onClick) el.addEventListener('click', onClick);
+  return el;
+}
+
 function renderRelicPick(app) {
   const wrap = document.createElement('div');
   wrap.className = 'screen screen-center';
@@ -219,11 +231,7 @@ function renderRelicPick(app) {
   row.className = 'relic-row';
   for (const id of state.relicChoices) {
     const r = RELICS[id];
-    const el = document.createElement('button');
-    el.className = 'relic-card';
-    el.innerHTML = `<div class="relic-name">${r.name}</div><div class="relic-text">${r.text}</div>`;
-    el.addEventListener('click', () => { chooseRelic(id); render(); });
-    row.appendChild(el);
+    row.appendChild(relicCard(r, () => { chooseRelic(id); render(); }));
   }
   wrap.appendChild(row);
   app.appendChild(wrap);
@@ -427,11 +435,7 @@ function renderActReward(app) {
     row.className = 'relic-row';
     for (const id of r.relicChoices) {
       const relic = RELICS[id];
-      const btn = document.createElement('button');
-      btn.className = 'relic-card';
-      btn.innerHTML = `<div class="relic-name">${relic.name}</div><div class="relic-text">${relic.text}</div>`;
-      btn.addEventListener('click', () => { takeActRewardRelic(id); render(); });
-      row.appendChild(btn);
+      row.appendChild(relicCard(relic, () => { takeActRewardRelic(id); render(); }));
     }
     wrap.appendChild(row);
   } else {
@@ -468,6 +472,43 @@ function renderActReward(app) {
       wrap.appendChild(btn);
     }
   }
+
+  app.appendChild(wrap);
+}
+
+// ---------------- Treasure ----------------
+
+function renderTreasure(app) {
+  const t = state.treasure;
+  const wrap = document.createElement('div');
+  wrap.className = 'screen screen-center';
+
+  const h = document.createElement('h1');
+  h.textContent = 'Treasure';
+  wrap.appendChild(h);
+
+  const gold = document.createElement('p');
+  gold.innerHTML = goldDisplay(t.gold) + ' gold';
+  wrap.appendChild(gold);
+
+  const sub = document.createElement('p');
+  sub.className = 'muted';
+  sub.textContent = 'Choose a relic:';
+  wrap.appendChild(sub);
+
+  const row = document.createElement('div');
+  row.className = 'relic-row';
+  for (const id of t.relicChoices) {
+    const relic = RELICS[id];
+    row.appendChild(relicCard(relic, () => { pickTreasureRelic(id); render(); }));
+  }
+  wrap.appendChild(row);
+
+  const skip = document.createElement('button');
+  skip.className = 'btn';
+  skip.textContent = 'Skip Relic';
+  skip.addEventListener('click', () => { skipTreasure(); render(); });
+  wrap.appendChild(skip);
 
   app.appendChild(wrap);
 }
