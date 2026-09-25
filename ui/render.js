@@ -19,8 +19,6 @@ import { ENEMY_CARDS } from '../data/enemy-cards.js';
 import { NODE_TYPES } from '../data/maps.js';
 import { getNode, reachableFrom, startingNodes } from '../systems/map.js';
 
-// Track the last click time to ignore duplicate click events that some
-// browsers (especially iPad Safari) fire on a single tap.
 let _lastCardClickAt = 0;
 
 export function render() {
@@ -700,13 +698,10 @@ function renderCombat(app) {
   const n = state.hand.length;
   state.hand.forEach((card, i) => {
     const el = cardInHand(card);
-    // Arc math: t goes from -1 (leftmost) to +1 (rightmost).
     const t = n === 1 ? 0 : (i - (n - 1) / 2) / ((n - 1) / 2);
     const maxAngle = 14;
     const maxDrop = 34;
     const rot = t * maxAngle;
-    // Quadratic drop makes a smoother fan — flat in the middle,
-    // edges droop noticeably.
     const drop = Math.pow(Math.abs(t), 1.8) * maxDrop;
     el.style.setProperty('--card-rot', rot.toFixed(2) + 'deg');
     el.style.setProperty('--card-offy', drop.toFixed(1) + 'px');
@@ -717,7 +712,6 @@ function renderCombat(app) {
 
   c.appendChild(bottomBar());
 
-  // Clicking empty space anywhere in combat clears the preview.
   c.addEventListener('click', () => {
     if (state.previewCardUid) {
       state.previewCardUid = null;
@@ -847,17 +841,14 @@ function cardInHand(card) {
     e.stopPropagation();
     if (!canPlay(card)) return;
 
-    // Guard against iPad Safari firing two click events on a single tap.
     const now = Date.now();
     if (now - _lastCardClickAt < 150) return;
     _lastCardClickAt = now;
 
     if (state.previewCardUid === card.uid) {
-      // Second tap on the previewed card → play it.
       tryPlayCard(card, el);
       return;
     }
-    // First tap → preview.
     state.previewCardUid = card.uid;
     render();
   });
@@ -882,43 +873,47 @@ function doPlayCard(card, sourceEl, targetUid) {
   }
 
   setTimeout(() => {
+    // Clear hit log so we only animate what THIS card does.
+    state.lastHits = [];
     const wasPlayed = playCard(card, targetUid);
+    const hits = state.lastHits || [];
+    state.lastHits = [];
+
     render();
 
-    if (targetEl) {
-      const r = targetEl.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      spawnSpark(cx, cy);
-      const hasDamage = def.effects.some(e => e.kind === 'damage' || e.kind === 'damageEqualToBlock' || e.kind === 'damageRandom' || e.kind === 'lastStand');
-      const hasBlock = def.effects.some(e => e.kind === 'block');
-      const hasHeal = def.effects.some(e => e.kind === 'heal' || e.kind === 'reaper');
-      if (hasDamage && targetUid) {
-        shakePanel(targetUid);
-        flashPanel(targetUid);
-        spawnFloat(cx, cy - 20, 'HIT', 'damage');
+    // Animate each hit with a small stagger between them.
+    animateHits(hits);
+
+    // Block indicator on player for cards that grant block.
+    const hasBlock = def.effects.some(e => e.kind === 'block');
+    if (hasBlock) {
+      const p = document.querySelector('[data-panel="player"]');
+      if (p) {
+        spawnFloatOn(p, '+BLOCK', 'block');
+        spawnBlockEffect(p);
       }
-      if (hasBlock) {
-        const p = document.querySelector('[data-panel="player"]');
-        if (p) {
-          const pr = p.getBoundingClientRect();
-          spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+BLOCK', 'block');
-          spawnBlockEffect(p);
-        }
-      }
-      if (hasHeal) {
-        const p = document.querySelector('[data-panel="player"]');
-        if (p) { const pr = p.getBoundingClientRect(); spawnFloat(pr.left + pr.width / 2, pr.top + 20, '+HP', 'heal'); }
-      }
+    }
+
+    const hasHeal = def.effects.some(e => e.kind === 'heal' || e.kind === 'reaper');
+    if (hasHeal) {
+      const p = document.querySelector('[data-panel="player"]');
+      if (p) spawnFloatOn(p, '+HP', 'heal');
     }
 
     if (wasPlayed && def.endsTurn && !state.over) {
       state.pendingCardUid = null;
       setTimeout(() => {
         if (state.over) return;
+        state.lastHits = [];
         beginEnemyTurn();
         render();
-        setTimeout(() => { resolveEnemyTurn(); render(); }, 450);
+        setTimeout(() => {
+          resolveEnemyTurn();
+          const enemyHits = state.lastHits || [];
+          state.lastHits = [];
+          render();
+          animateHits(enemyHits);
+        }, 450);
       }, 300);
     }
   }, 220);
@@ -962,9 +957,16 @@ function bottomBar() {
     e.stopPropagation();
     state.pendingCardUid = null;
     state.previewCardUid = null;
+    state.lastHits = [];
     beginEnemyTurn();
     render();
-    setTimeout(() => { resolveEnemyTurn(); render(); }, 450);
+    setTimeout(() => {
+      resolveEnemyTurn();
+      const hits = state.lastHits || [];
+      state.lastHits = [];
+      render();
+      animateHits(hits);
+    }, 450);
   });
   bar.appendChild(btn);
 
@@ -1030,6 +1032,44 @@ function renderGameOver(app) {
 
 // ---------------- Animation helpers ----------------
 
+function getPanelElement(uid) {
+  if (!uid || uid === 'player') {
+    return document.querySelector('[data-panel="player"]');
+  }
+  return document.querySelector(`[data-panel="enemy"][data-uid="${uid}"]`);
+}
+
+// Fires the hit sequence for each damage event, staggered so multi-hit
+// cards show distinct numbers.
+function animateHits(hits) {
+  hits.forEach((hit, i) => {
+    setTimeout(() => {
+      const targetEl = getPanelElement(hit.targetUid);
+      if (!targetEl) return;
+
+      spawnSlash(targetEl, hit.animation || 'slash');
+
+      const r = targetEl.getBoundingClientRect();
+      spawnSpark(r.left + r.width / 2, r.top + r.height / 2);
+
+      if (hit.blocked > 0) {
+        spawnBlockedIndicator(targetEl);
+      }
+      if (hit.dealt > 0) {
+        spawnDamageNumber(targetEl, hit.dealt);
+        shakePanel(hit.targetUid);
+        flashPanel(hit.targetUid);
+      }
+    }, i * 260);
+  });
+}
+
+export function spawnFloatOn(el, text, kind = 'damage') {
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  spawnFloat(r.left + r.width / 2, r.top + 20, text, kind);
+}
+
 export function spawnFloat(x, y, text, kind = 'damage') {
   const el = document.createElement('div');
   el.className = `float-text ${kind}`;
@@ -1047,6 +1087,59 @@ export function spawnSpark(x, y) {
   el.style.top = y + 'px';
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 450);
+}
+
+// Sword slash sweeping across the target panel.
+export function spawnSlash(targetEl, kind = 'slash') {
+  const r = targetEl.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+
+  const slash = document.createElement('div');
+  slash.className = 'slash-effect ' + kind;
+  slash.style.left = cx + 'px';
+  slash.style.top = cy + 'px';
+  document.body.appendChild(slash);
+  setTimeout(() => slash.remove(), 400);
+}
+
+// Shield impact + "Blocked" text when damage is absorbed.
+export function spawnBlockedIndicator(targetEl) {
+  const r = targetEl.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+
+  const shield = document.createElement('img');
+  shield.src = 'assets/shield.png';
+  shield.className = 'block-impact';
+  shield.style.left = cx + 'px';
+  shield.style.top = cy + 'px';
+  document.body.appendChild(shield);
+  setTimeout(() => shield.remove(), 900);
+
+  const label = document.createElement('div');
+  label.className = 'float-text blocked';
+  label.textContent = 'Blocked';
+  label.style.left = (cx + 40) + 'px';
+  label.style.top = (cy - 30) + 'px';
+  document.body.appendChild(label);
+  setTimeout(() => label.remove(), 950);
+}
+
+// Big damage number floating above the target.
+export function spawnDamageNumber(targetEl, amount) {
+  const r = targetEl.getBoundingClientRect();
+  const jitterX = (Math.random() - 0.5) * 40;
+  const cx = r.left + r.width / 2 + jitterX;
+  const cy = r.top + r.height / 2;
+
+  const el = document.createElement('div');
+  el.className = 'float-text damage';
+  el.textContent = '-' + amount;
+  el.style.left = cx + 'px';
+  el.style.top = cy + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 950);
 }
 
 export function spawnBlockEffect(playerEl) {
