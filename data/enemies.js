@@ -81,7 +81,7 @@ export const ENEMIES = {
     deck: ['guardian-slam', 'guardian-mode', 'guardian-slam', 'guardian-vent'],
   },
   'hexaghost': {
-    id: 'hexaghost', name: 'Hexaghost', hp: 250,
+    id: 'hexaghost', name: 'Hexaghost', hp: 180,
     deck: ['hexaghost-divider', 'hexaghost-sear', 'hexaghost-inflame', 'hexaghost-tackle'],
   },
   'slime-boss': {
