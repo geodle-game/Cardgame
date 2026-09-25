@@ -386,7 +386,6 @@ function renderReward(app) {
     const grid = document.createElement('div');
     grid.className = 'deck-grid';
     for (const id of r.cards) {
-      // small: true so reward cards use the compact, non-overlapping layout.
       const el = cardFace(id, { small: true });
       el.addEventListener('click', () => { takeRewardCard(id); render(); });
       grid.appendChild(el);
@@ -549,7 +548,7 @@ function renderVictory(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Event / Shop / Rest ----------------
+// ---------------- Event ----------------
 
 function renderEvent(app) {
   const ev = state.event.data;
@@ -578,10 +577,12 @@ function renderEvent(app) {
   app.appendChild(wrap);
 }
 
+// ---------------- Shop ----------------
+
 function renderShop(app) {
   const s = state.shop;
   const wrap = document.createElement('div');
-  wrap.className = 'screen screen-center';
+  wrap.className = 'screen screen-center shop-screen';
 
   const h = document.createElement('h1');
   h.textContent = 'Shop';
@@ -632,6 +633,8 @@ function renderShop(app) {
   wrap.appendChild(leave);
   app.appendChild(wrap);
 }
+
+// ---------------- Rest ----------------
 
 function renderRest(app) {
   const wrap = document.createElement('div');
