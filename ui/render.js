@@ -45,28 +45,35 @@ export function render() {
 
 // ---------------- Card text resolution ----------------
 
-// Replaces {key} placeholders in card text with the values from
-// def.liveValues(state). Values wrapped in <span class="live"> so they
-// render green. Empty strings collapse out cleanly.
-function resolveCardText(def) {
+function resolveCardText(def, ctx) {
   let text = def.text;
   if (!def.liveValues) return text;
   let vals;
   try {
-    vals = def.liveValues(state) || {};
+    vals = def.liveValues(state, ctx) || {};
   } catch (e) {
     return text;
   }
   for (const [key, raw] of Object.entries(vals)) {
     const value = raw == null ? '' : String(raw);
-    const html = value
-      ? `<span class="live">${value}</span>`
-      : '';
+    const html = value ? `<span class="live">${value}</span>` : '';
     text = text.replace(new RegExp(`\\{${key}\\}`, 'g'), html);
   }
-  // Clean up any leftover placeholders that weren't provided.
   text = text.replace(/\{[a-zA-Z0-9_]+\}/g, '');
   return text;
+}
+
+// Builds the context for player card text (attacker = player, target = selected enemy).
+function playerCardContext() {
+  const attacker = state.player;
+  const living = (state.enemies || []).filter(e => e.hp > 0);
+  const target = living.find(e => e.uid === state.selectedEnemyId) || living[0] || null;
+  return { attacker, target };
+}
+
+// Builds the context for enemy card text (attacker = enemy, target = player).
+function enemyCardContext(enemy) {
+  return { attacker: enemy, target: state.player };
 }
 
 // ---------------- Gold coin stack helper ----------------
@@ -716,17 +723,19 @@ function enemyPanel(e) {
   }
   wrap.appendChild(el);
 
-  if (!dead && e.intentCard) wrap.appendChild(enemyIntentCard(e.intentCard));
+  if (!dead && e.intentCard) wrap.appendChild(enemyIntentCard(e.intentCard, e));
   return wrap;
 }
 
-function enemyIntentCard(card) {
+function enemyIntentCard(card, enemy) {
   const def = ENEMY_CARDS[card.defId];
+  const ctx = enemyCardContext(enemy);
+  const text = resolveCardText(def, ctx);
   const el = document.createElement('div');
   el.className = 'enemy-card';
   el.innerHTML = `
     <div class="enemy-card-name">${def.name}</div>
-    <div class="enemy-card-text">${def.text}</div>
+    <div class="enemy-card-text">${text}</div>
   `;
   return el;
 }
@@ -826,7 +835,8 @@ function cardFace(defId, { disabled = false, small = false } = {}) {
   el.classList.add(`type-${def.type || 'skill'}`);
   if (def.retain) el.classList.add('card-retain');
 
-  const text = resolveCardText(def);
+  const ctx = playerCardContext();
+  const text = resolveCardText(def, ctx);
 
   el.innerHTML = `
     <div class="cost">${def.unplayable ? '–' : def.cost}</div>
