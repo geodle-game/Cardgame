@@ -64,6 +64,8 @@ export function playCard(card, explicitTargetId = null) {
   state.pendingCardUid = null;
   state.hand = state.hand.filter(c => c.uid !== card.uid);
 
+  state.currentAnimation = def.animation || 'slash';
+
   const targets = resolveTargets(def.target, explicitTargetId);
 
   if (def.type === 'attack') combat.attacksThisTurn++;
@@ -94,6 +96,8 @@ export function playCard(card, explicitTargetId = null) {
     }
   }
   if (timesToPlay > 1) pushLog(`  Played ${timesToPlay}×!`);
+
+  state.currentAnimation = null;
 
   let dest = def.destination ?? 'discard';
   if (state.player.corruption && def.type === 'skill') dest = 'exhaust';
@@ -128,7 +132,6 @@ function exhaustCard(card) {
   }
 }
 
-// Applies HP loss to the player and fires onLoseHp relic triggers.
 function damagePlayerHp(amount) {
   const before = state.player.hp;
   state.player.hp = Math.max(0, state.player.hp - amount);
@@ -592,7 +595,6 @@ export function dealDamage(attacker, target, base, strengthMultiplier) {
   dmg *= outgoingMultiplier(attacker);
   dmg *= incomingMultiplier(target);
 
-  // Relic: Sharpened Edge — bonus damage vs Vulnerable when the player attacks.
   if (attacker === state.player && (target.statuses?.vulnerable || 0) > 0) {
     for (const rid of state.run.relics || []) {
       const r = RELICS[rid];
@@ -607,8 +609,17 @@ export function dealDamage(attacker, target, base, strengthMultiplier) {
   target.block -= blocked;
   const dealt = dmg - blocked;
 
+  // Push the hit into the log so the renderer can animate each hit.
+  if (!state.lastHits) state.lastHits = [];
+  state.lastHits.push({
+    attackerUid: attacker.id === 'player' ? 'player' : attacker.uid,
+    targetUid:   target.id   === 'player' ? 'player' : target.uid,
+    dealt,
+    blocked,
+    animation: state.currentAnimation || 'slash',
+  });
+
   if (target === state.player) {
-    // Player HP loss — triggers onLoseHp relics.
     damagePlayerHp(dealt);
   } else {
     target.hp = Math.max(0, target.hp - dealt);
@@ -644,6 +655,8 @@ export function beginEnemyTurn() {
 export function resolveEnemyTurn() {
   if (state.over) return;
 
+  state.currentAnimation = 'slash';
+
   for (const e of state.enemies) {
     if (e.hp <= 0) continue;
     const card = e.intentCard;
@@ -658,6 +671,8 @@ export function resolveEnemyTurn() {
     tickStatuses(e);
     rollIntent(e);
   }
+
+  state.currentAnimation = null;
 
   if (state.player.hp <= 0) {
     pushLog('Defeat.');
