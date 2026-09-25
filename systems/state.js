@@ -3,7 +3,7 @@ import { ENCOUNTERS, getEnemyDef } from '../data/enemies.js';
 import {
   makeCard, shuffle, draw, makeRng, makeEnemyCard, drawEnemyCard,
 } from './deck.js';
-import { RELICS } from '../data/relics.js';
+import { RELICS, rollRelicChoices } from '../data/relics.js';
 import { generateMap, getNode, reachableFrom, startingNodes } from './map.js';
 import { rollCoins, rollCardChoices, rollActTransition } from './rewards.js';
 import { randomEvent } from '../data/events.js';
@@ -31,6 +31,7 @@ export const state = {
 
   reward: null,
   actReward: null,
+  treasure: null,
   event: null,
   shop: null,
   rest: null,
@@ -68,6 +69,25 @@ export function actScaling(act) {
   return table[act] ?? table[1];
 }
 
+// ---------- Relic helpers ----------
+
+// Runs fn(relic) for each owned relic matching trigger.
+export function forEachRelic(trigger, fn) {
+  for (const rid of state.run.relics || []) {
+    const r = RELICS[rid];
+    if (r && r.trigger === trigger) fn(r);
+  }
+}
+
+// True if the player owns any relic with this trigger.
+export function hasRelicTrigger(trigger) {
+  for (const rid of state.run.relics || []) {
+    const r = RELICS[rid];
+    if (r && r.trigger === trigger) return true;
+  }
+  return false;
+}
+
 // ---------- Run setup ----------
 
 export function newRun(seed = Date.now()) {
@@ -87,24 +107,14 @@ export function newRun(seed = Date.now()) {
     victory: false,
     bossesBeaten: [],
   };
-  state.relicChoices = pickRelicChoices();
+  state.relicChoices = rollRelicChoices(state.rng, [], 3);
   state.screen = 'relicPick';
   state.log = [];
   state.over = false;
   state.result = null;
   state.overlays = emptyOverlays();
   state.combatBanner = null;
-}
-
-function pickRelicChoices() {
-  const pool = Object.keys(RELICS);
-  const out = [];
-  const copy = pool.slice();
-  for (let i = 0; i < 3 && copy.length; i++) {
-    const idx = Math.floor(state.rng() * copy.length);
-    out.push(copy.splice(idx, 1)[0]);
-  }
-  return out;
+  state.treasure = null;
 }
 
 export function chooseRelic(relicId) {
@@ -171,21 +181,34 @@ export function startNode(nodeId) {
     state.rest = { healed: false };
     state.screen = 'rest';
   } else if (node.type === 'treasure') {
-    const relicIds = Object.keys(RELICS).filter(id => !state.run.relics.includes(id));
-    if (relicIds.length) {
-      const r = relicIds[Math.floor(state.rng() * relicIds.length)];
-      state.run.relics.push(r);
-      state.run.relic = state.run.relic || r;
-      pushLog(`Treasure: ${RELICS[r].name}.`);
-    }
-    const g = 30 + Math.floor(state.rng() * 20);
-    state.run.gold += g;
-    pushLog(`+${g} gold.`);
-    state.screen = 'map';
+    const relicChoices = rollRelicChoices(state.rng, state.run.relics, 3);
+    const gold = 30 + Math.floor(state.rng() * 20);
+    state.treasure = { relicChoices, gold };
+    state.screen = 'treasure';
     return;
   } else {
     state.screen = 'map';
   }
+}
+
+export function pickTreasureRelic(relicId) {
+  if (!state.treasure) return;
+  if (state.treasure.relicChoices.length === 0) return;
+  if (!state.treasure.relicChoices.includes(relicId)) return;
+  state.run.relics.push(relicId);
+  state.run.relic = state.run.relic || relicId;
+  state.run.gold += state.treasure.gold;
+  pushLog(`Treasure: ${RELICS[relicId].name}. +${state.treasure.gold} gold.`);
+  state.treasure = null;
+  backToMap();
+}
+
+export function skipTreasure() {
+  if (!state.treasure) return;
+  state.run.gold += state.treasure.gold;
+  pushLog(`Skipped treasure. +${state.treasure.gold} gold.`);
+  state.treasure = null;
+  backToMap();
 }
 
 function pickEncounter(kind) {
@@ -209,6 +232,7 @@ export function backToMap() {
   state.event = null;
   state.shop = null;
   state.rest = null;
+  state.treasure = null;
   state.overlays = emptyOverlays();
 }
 
@@ -227,7 +251,6 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   state.combatKind = sourceKind;
   state.lastEncounterId = encounterId;
 
-  // Pick the banner ONCE at combat start. It won't change until the next fight.
   state.combatBanner = bannerForCombat(sourceKind, state.rng);
 
   const scale = actScaling(state.run.act);
@@ -263,14 +286,17 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   state.log = [];
   state.overlays = emptyOverlays();
 
-  const relic = state.run.relic ? RELICS[state.run.relic] : null;
-  if (relic?.trigger === 'combatStart') {
-    if (relic.block) state.player.block += relic.block;
-    if (relic.heal) state.player.hp = Math.min(state.player.maxHp, state.player.hp + relic.heal);
-  }
-  if (relic?.trigger === 'firstTurn') {
-    state.player.nextTurnEnergy += relic.energy || 0;
-  }
+  // --- Relic triggers: combatStart + firstTurn ---
+  forEachRelic('combatStart', (r) => {
+    if (r.block)  state.player.block += r.block;
+    if (r.heal)   state.player.hp = Math.min(state.player.maxHp, state.player.hp + r.heal);
+    if (r.strength) {
+      state.player.statuses.strength = (state.player.statuses.strength || 0) + r.strength;
+    }
+  });
+  forEachRelic('firstTurn', (r) => {
+    if (r.energy) state.player.nextTurnEnergy += r.energy;
+  });
 
   for (const e of state.enemies) rollIntent(e);
   startPlayerTurn(true);
@@ -280,10 +306,13 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
 
 export function endCombat(win) {
   state.run.hp = state.player.hp;
-  const relic = state.run.relic ? RELICS[state.run.relic] : null;
-  if (win && relic?.trigger === 'combatEnd' && relic.amount) {
-    state.run.hp = Math.min(state.run.maxHp, state.run.hp + relic.amount);
+
+  if (win) {
+    forEachRelic('combatEnd', (r) => {
+      if (r.heal) state.run.hp = Math.min(state.run.maxHp, state.run.hp + r.heal);
+    });
   }
+
   state.over = true;
   state.result = win ? 'win' : 'loss';
   state.turn = 'over';
@@ -295,14 +324,20 @@ export function endCombat(win) {
       const lastEncounter = state.lastEncounterId;
       if (lastEncounter) state.run.bossesBeaten.push(lastEncounter);
       state.run.cleared = true;
-
-      if (state.run.act >= 2) {
-        state.run.victory = true;
-      }
+      if (state.run.act >= 2) state.run.victory = true;
       return;
     }
 
-    const coins = rollCoins(state.rng, kind);
+    let coins = rollCoins(state.rng, kind);
+
+    // Relic: onGoldGain (Coin Purse)
+    forEachRelic('onGoldGain', (r) => {
+      if (r.doubleChance && state.rng() < r.doubleChance) {
+        coins *= 2;
+        pushLog('Coin Purse: doubled gold!');
+      }
+    });
+
     const cards = rollCardChoices(state.rng, 3);
     state.reward = { coins, cards, taken: false };
   }
@@ -322,7 +357,6 @@ export function nextAct() {
   state.run.floor = -1;
   state.actReward = rollActTransition(state.rng, state.run.relics);
   state.actReward.healAmount = healed;
-  state.actReward.healRequested = healAmount;
   state.screen = 'actReward';
 }
 
@@ -340,6 +374,7 @@ export function skipActRewardCard() {
 export function takeActRewardRelic(relicId) {
   if (!state.actReward || state.actReward.relicTaken) return;
   state.run.relics.push(relicId);
+  state.run.relic = state.run.relic || relicId;
   state.actReward.relicTaken = relicId;
 }
 
@@ -362,7 +397,22 @@ export function rollIntent(enemy) {
 
 export function startPlayerTurn(isFirstTurn = false) {
   state.turn = 'player';
-  if (!isFirstTurn) state.player.block = 0;
+  if (!isFirstTurn) {
+    // Relic: onTurnEnd (Bronze Scales) — keep a portion of leftover block.
+    let keepPercent = 0;
+    let keepMax = 999;
+    forEachRelic('onTurnEnd', (r) => {
+      if (r.keepBlockPercent) {
+        keepPercent = Math.max(keepPercent, r.keepBlockPercent);
+        keepMax = Math.min(keepMax, r.keepBlockMax ?? 999);
+      }
+    });
+    if (keepPercent > 0) {
+      state.player.block = Math.min(keepMax, Math.floor(state.player.block * keepPercent));
+    } else {
+      state.player.block = 0;
+    }
+  }
   state.energy = state.maxEnergy + (state.player.nextTurnEnergy || 0);
   state.player.nextTurnEnergy = 0;
   draw(state, 5);
