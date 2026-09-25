@@ -63,6 +63,7 @@ export const CARDS = {
   bash: {
     id: 'bash', name: 'Bash', cost: 2, rarity: 'starter',
     type: 'attack', target: 'enemy', destination: 'discard',
+    animation: 'heavy',
     text: 'Deal 8 damage.{live} Apply 2 Vulnerable.',
     effects: [
       { kind: 'damage', amount: 8 },
