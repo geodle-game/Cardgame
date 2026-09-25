@@ -19,17 +19,12 @@ import { ENEMY_CARDS } from '../data/enemy-cards.js';
 import { NODE_TYPES } from '../data/maps.js';
 import { getNode, reachableFrom, startingNodes } from '../systems/map.js';
 
-// Long-press duration before the inspect overlay appears (ms).
 const LONG_PRESS_MS = 450;
-// Movement (px) above which a press is treated as a drag, not a tap.
 const DRAG_THRESHOLD = 14;
 
 export function render() {
   const app = document.getElementById('app');
-
-  // A re-render always kills any open inspect overlay.
   document.querySelectorAll('.card-preview-overlay').forEach(el => el.remove());
-
   app.innerHTML = '';
 
   switch (state.screen) {
@@ -391,7 +386,8 @@ function renderReward(app) {
     const grid = document.createElement('div');
     grid.className = 'deck-grid';
     for (const id of r.cards) {
-      const el = cardFace(id);
+      // small: true so reward cards use the compact, non-overlapping layout.
+      const el = cardFace(id, { small: true });
       el.addEventListener('click', () => { takeRewardCard(id); render(); });
       grid.appendChild(el);
     }
@@ -462,7 +458,7 @@ function renderActReward(app) {
       const grid = document.createElement('div');
       grid.className = 'deck-grid';
       for (const id of r.cards) {
-        const el = cardFace(id);
+        const el = cardFace(id, { small: true });
         el.addEventListener('click', () => { takeActRewardCard(id); render(); });
         grid.appendChild(el);
       }
@@ -817,7 +813,6 @@ function tryPlayCard(card, sourceEl) {
   doPlayCard(card, sourceEl, null);
 }
 
-// Long-press overlay: enlarged card, tap anywhere to dismiss.
 function showPreviewOverlay(card) {
   document.querySelectorAll('.card-preview-overlay').forEach(el => el.remove());
 
@@ -905,7 +900,6 @@ function cardInHand(card) {
     if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
   });
 
-  // Suppress native drag/context behaviors on long press.
   el.addEventListener('contextmenu', (e) => e.preventDefault());
 
   return el;
@@ -1103,7 +1097,7 @@ function animateHits(hits) {
         shakePanel(hit.targetUid);
         flashPanel(hit.targetUid);
       }
-    }, i * 260);
+    }, i * 280);
   });
 }
 
@@ -1142,7 +1136,7 @@ export function spawnSlash(targetEl, kind = 'slash') {
   slash.style.left = cx + 'px';
   slash.style.top = cy + 'px';
   document.body.appendChild(slash);
-  setTimeout(() => slash.remove(), 400);
+  setTimeout(() => slash.remove(), 600);
 }
 
 export function spawnBlockedIndicator(targetEl) {
