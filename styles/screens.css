@@ -13,28 +13,30 @@
   background: radial-gradient(ellipse at center, #1c2028 0%, #14161a 75%);
 }
 
-/* Banner is an absolutely-positioned image. Width is locked to the
-   full width of .combat; height scales proportionally so the image's
-   aspect ratio is preserved no matter how wide/narrow it is. */
 .combat-banner {
   position: absolute;
+  top: 50%;
   left: 0;
-  right: 0;
-  top: 40%;
-  transform: translateY(-50%);
   width: 100%;
   height: auto;
+  transform: translateY(-50%);
   pointer-events: none;
   z-index: 0;
   opacity: .55;
-  -webkit-mask-image:
-    linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%),
-    linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%),
-    linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-  mask-composite: intersect;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
 }
 
 .top {
@@ -55,6 +57,7 @@
   flex-wrap: wrap;
 }
 
+/* Top-right buttons (deck / relics) */
 .top-buttons {
   position: fixed;
   top: 16px;
@@ -83,6 +86,7 @@
   border-color: #8f6bff;
 }
 
+/* Piles at bottom */
 .pile {
   background: linear-gradient(180deg, #232833, #1a1e26);
   border: 1px solid #3a4250;
@@ -314,6 +318,11 @@
   line-height: 1.35;
 }
 
+.enemy-card-text .live {
+  color: #6bff9e;
+  font-weight: 700;
+}
+
 @keyframes enemyCardIn {
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -467,6 +476,53 @@
   border: 1px solid #3a4250;
   border-radius: 10px;
   padding: 12px 16px;
+}
+
+/* ============================================================
+   RELIC RARITY COLORS
+   ============================================================ */
+
+.relic-card.rarity-common,
+.relic-row-item.rarity-common {
+  border-color: #8a93a6;
+}
+
+.relic-card.rarity-uncommon,
+.relic-row-item.rarity-uncommon {
+  border-color: #6f8fff;
+  box-shadow: 0 0 0 1px rgba(111,143,255,.25) inset;
+}
+
+.relic-card.rarity-rare,
+.relic-row-item.rarity-rare {
+  border-color: #ffd166;
+  box-shadow: 0 0 0 1px rgba(255,209,102,.3) inset, 0 0 20px rgba(255,209,102,.15);
+}
+
+.relic-rarity-badge {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #262b34;
+  color: #8b93a1;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.relic-card.rarity-common   .relic-rarity-badge { color: #8a93a6; }
+.relic-card.rarity-uncommon .relic-rarity-badge { color: #6f8fff; }
+.relic-card.rarity-rare     .relic-rarity-badge { color: #ffd166; }
+
+.relic-rarity {
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #8b93a1;
+  font-weight: 400;
+  margin-left: 6px;
 }
 
 /* ============================================================
