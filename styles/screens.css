@@ -57,7 +57,6 @@
   flex-wrap: wrap;
 }
 
-/* Top-right buttons (deck / relics) */
 .top-buttons {
   position: fixed;
   top: 16px;
@@ -86,7 +85,6 @@
   border-color: #8f6bff;
 }
 
-/* Piles at bottom */
 .pile {
   background: linear-gradient(180deg, #232833, #1a1e26);
   border: 1px solid #3a4250;
@@ -327,9 +325,8 @@
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 /* ============================================================
-   BLOCK EFFECT
+   BLOCK GAIN EFFECT
    ============================================================ */
 
 .block-effect {
@@ -340,7 +337,7 @@
   pointer-events: none;
   z-index: 9999;
   transform: translate(-50%, -50%);
-  animation: blockEffect 0.95s cubic-bezier(.2,.9,.3,1) forwards;
+  animation: blockEffect .95s cubic-bezier(.2,.9,.3,1) forwards;
   filter: drop-shadow(0 6px 16px rgba(111,179,255,.7));
 }
 
@@ -362,7 +359,6 @@
     transform: translate(-50%, -130%) scale(1.05) rotate(-8deg);
   }
 }
-
 /* ============================================================
    VICTORY / DEFEAT OVERLAY
    ============================================================ */
@@ -666,6 +662,41 @@
   font-size: 15px;
   min-width: 280px;
   box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+
+/* ============================================================
+   SHOP BACKGROUND
+   ============================================================ */
+
+.shop-screen {
+  position: relative;
+  min-height: calc(100vh - 32px);
+  background-image:
+    linear-gradient(rgba(20,22,26,.72), rgba(20,22,26,.88)),
+    url('../assets/background1.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 12px;
+  padding: 32px;
+}
+
+.shop-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+.shop-screen h1 {
+  text-shadow: 0 2px 12px rgba(0,0,0,.9), 0 0 20px rgba(143,107,255,.5);
+}
+
+.shop-screen .shop-cell {
+  background: rgba(30,34,41,.85);
+  backdrop-filter: blur(4px);
+}
+
+.shop-screen .gold {
+  text-shadow: 0 2px 8px rgba(0,0,0,.9);
 }
 
 /* ============================================================
