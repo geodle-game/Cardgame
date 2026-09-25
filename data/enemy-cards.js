@@ -313,34 +313,25 @@ export const ENEMY_CARDS = {
       { kind: 'applyStatus', status: 'vulnerable', amount: 2 },
     ],
   },
+
+  // Divider now deals half the player's MAX HP (not current).
+  // At 70 max that's 35 damage. Ignores Strength/Weak/Vulnerable.
   'hexaghost-divider': {
     id: 'hexaghost-divider', name: 'Divider', cost: 1, owner: 'enemy',
     type: 'attack', target: 'player', destination: 'discard',
-    text: 'Deal 6 damage 6 times.{live}',
-    effects: [
-      { kind: 'damage', amount: 6 },
-      { kind: 'damage', amount: 6 },
-      { kind: 'damage', amount: 6 },
-      { kind: 'damage', amount: 6 },
-      { kind: 'damage', amount: 6 },
-      { kind: 'damage', amount: 6 },
-    ],
-    liveValues: (s, ctx) => {
-      if (!ctx?.attacker || !ctx?.target) return { live: '' };
-      const per = liveDamage(6)(s, ctx).live;
-      if (!per) return { live: '' };
-      return { live: `${per.replace(')', '')} each)` };
-    },
+    text: "Deal damage equal to half your max HP.",
+    effects: [{ kind: 'damagePercentMaxHp', percent: 0.5 }],
   },
+
   'hexaghost-sear': {
     id: 'hexaghost-sear', name: 'Sear', cost: 1, owner: 'enemy',
     type: 'attack', target: 'player', destination: 'discard',
-    text: 'Deal 6 damage.{live} Add a Burn to your discard pile.',
+    text: 'Deal 5 damage.{live} Add a Burn to your discard pile.',
     effects: [
-      { kind: 'damage', amount: 6 },
+      { kind: 'damage', amount: 5 },
       { kind: 'addCardToPlayerDiscard', cardId: 'burn' },
     ],
-    liveValues: liveDamage(6),
+    liveValues: liveDamage(5),
   },
   'hexaghost-inflame': {
     id: 'hexaghost-inflame', name: 'Inflame', cost: 1, owner: 'enemy',
@@ -351,14 +342,14 @@ export const ENEMY_CARDS = {
   'hexaghost-tackle': {
     id: 'hexaghost-tackle', name: 'Tackle', cost: 1, owner: 'enemy',
     type: 'attack', target: 'player', destination: 'discard',
-    text: 'Deal 5 damage twice.{live}',
+    text: 'Deal 4 damage twice.{live}',
     effects: [
-      { kind: 'damage', amount: 5 },
-      { kind: 'damage', amount: 5 },
+      { kind: 'damage', amount: 4 },
+      { kind: 'damage', amount: 4 },
     ],
     liveValues: (s, ctx) => {
       if (!ctx?.attacker || !ctx?.target) return { live: '' };
-      const per = liveDamage(5)(s, ctx).live;
+      const per = liveDamage(4)(s, ctx).live;
       if (!per) return { live: '' };
       return { live: `${per.replace(')', '')} each)` };
     },
