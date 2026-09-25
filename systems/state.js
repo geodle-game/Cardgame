@@ -68,8 +68,8 @@ function emptyOverlays() {
 export function actScaling(act) {
   const table = {
     1: { hp: 1.0,  damage: 1.0  },
-    2: { hp: 1.55, damage: 1.35 },
-    3: { hp: 2.2,  damage: 1.7  },
+    2: { hp: 1.35, damage: 1.15 },
+    3: { hp: 1.55,  damage: 1.35  },
   };
   return table[act] ?? table[1];
 }
