@@ -10,6 +10,7 @@ import {
 import { CARDS, cardBaseDamage } from '../data/cards.js';
 import { RELICS } from '../data/relics.js';
 import { ENEMY_CARDS } from '../data/enemy-cards.js';
+import { getEnchant } from '../data/enchants.js';
 
 const combat = {
   attacksThisTurn: 0,
@@ -35,6 +36,13 @@ export function costOf(card) {
     const steps = Math.floor(combat.hpLostThisCombat / def.costReduction.per);
     cost = Math.max(def.costReduction.min ?? 0, cost - steps);
   }
+
+  // Enchant: cost reduction.
+  if (card.enchant) {
+    const ench = getEnchant(card.enchant);
+    if (ench?.costDelta) cost = Math.max(0, cost + ench.costDelta);
+  }
+
   return Math.max(0, cost);
 }
 
@@ -59,6 +67,7 @@ export function selectCardForPlay(card) {
 export function playCard(card, explicitTargetId = null) {
   if (!canPlay(card)) return false;
   const def = CARDS[card.defId];
+  const enchant = card.enchant ? getEnchant(card.enchant) : null;
   const cost = costOf(card);
   state.energy -= cost;
   state.pendingCardUid = null;
@@ -95,6 +104,12 @@ export function playCard(card, explicitTargetId = null) {
       for (const eff of def.effects) applyEffect(eff, targets, card, state.player);
     }
   }
+
+  // Enchant: run onPlay effects once per card play, not per hit.
+  if (enchant?.onPlay) {
+    for (const eff of enchant.onPlay) applyEffect(eff, targets, card, state.player);
+  }
+
   if (timesToPlay > 1) pushLog(`  Played ${timesToPlay}×!`);
 
   state.currentAnimation = null;
@@ -170,26 +185,39 @@ function resolveEnemyTargets(enemy, kind) {
   return [state.player];
 }
 
+// Helper: enchant damage/block modifiers on the player's card.
+function enchantDamageBonus(card, source) {
+  if (source !== state.player || !card?.enchant) return 0;
+  const e = getEnchant(card.enchant);
+  return e?.damageBonus ?? 0;
+}
+function enchantBlockBonus(card, source) {
+  if (source !== state.player || !card?.enchant) return 0;
+  const e = getEnchant(card.enchant);
+  return e?.blockBonus ?? 0;
+}
+
 function applyEffect(eff, targets, card, source) {
   switch (eff.kind) {
-    case 'damage':
+    case 'damage': {
+      const bonus = enchantDamageBonus(card, source);
       for (const t of targets) {
-        const r = dealDamage(source, t, eff.amount, eff.strengthMultiplier);
+        const r = dealDamage(source, t, eff.amount + bonus, eff.strengthMultiplier);
         pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
       }
       break;
+    }
 
     case 'damageRandom': {
+      const bonus = enchantDamageBonus(card, source);
       const pool = livingEnemies();
       if (!pool.length) break;
       const t = pool[Math.floor(state.rng() * pool.length)];
-      const r = dealDamage(source, t, eff.amount);
+      const r = dealDamage(source, t, eff.amount + bonus);
       pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
       break;
     }
 
-    // Deal a percentage of the target's MAX HP. Ignores Strength, Weak,
-    // Vulnerable, and damage scale. Only blocked by Block.
     case 'damagePercentMaxHp': {
       const pct = eff.percent ?? 0.5;
       for (const t of targets) {
@@ -218,7 +246,8 @@ function applyEffect(eff, targets, card, source) {
     }
 
     case 'damageEqualToBlock': {
-      const amount = Math.floor(source.block * (eff.multiplier ?? 1));
+      const bonus = enchantDamageBonus(card, source);
+      const amount = Math.floor(source.block * (eff.multiplier ?? 1)) + bonus;
       for (const t of targets) {
         const r = dealDamage(source, t, amount);
         pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
@@ -227,8 +256,9 @@ function applyEffect(eff, targets, card, source) {
     }
 
     case 'perfectedStrike': {
-      const strikeCount = state.run.deckIds.filter(id => id.includes('strike')).length;
-      const amount = eff.base + eff.perStrike * strikeCount;
+      const bonus = enchantDamageBonus(card, source);
+      const strikeCount = state.run.deck.filter(c => c.defId.includes('strike')).length;
+      const amount = eff.base + eff.perStrike * strikeCount + bonus;
       for (const t of targets) {
         const r = dealDamage(source, t, amount);
         pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}). [${strikeCount} strikes]`);
@@ -237,23 +267,25 @@ function applyEffect(eff, targets, card, source) {
     }
 
     case 'rampage': {
-      const bonus = combat.rampageBonus[card.uid] || 0;
-      const amount = eff.base + bonus;
+      const bonus = enchantDamageBonus(card, source);
+      const rampBonus = combat.rampageBonus[card.uid] || 0;
+      const amount = eff.base + rampBonus + bonus;
       for (const t of targets) {
         const r = dealDamage(source, t, amount);
         pushLog(`  ${t.name} took ${r.dealt} (blocked ${r.blocked}).`);
       }
-      combat.rampageBonus[card.uid] = bonus + eff.per;
+      combat.rampageBonus[card.uid] = rampBonus + eff.per;
       break;
     }
 
     case 'finisher': {
+      const bonus = enchantDamageBonus(card, source);
       const times = Math.max(0, combat.attacksThisTurn - 1);
       for (let i = 0; i < times; i++) {
         const pool = livingEnemies();
         if (!pool.length) break;
         const t = pool[Math.floor(state.rng() * pool.length)];
-        const r = dealDamage(source, t, eff.amount);
+        const r = dealDamage(source, t, eff.amount + bonus);
         pushLog(`  Finisher: ${t.name} took ${r.dealt}.`);
       }
       if (times === 0) pushLog('  Finisher: no attacks before this.');
@@ -261,8 +293,9 @@ function applyEffect(eff, targets, card, source) {
     }
 
     case 'lastStand': {
+      const bonus = enchantDamageBonus(card, source);
       const handCount = state.hand.length;
-      const dmg = eff.base + handCount;
+      const dmg = eff.base + handCount + bonus;
       pushLog(`  Last Stand: ${handCount} cards in hand → ${dmg} damage.`);
       for (const t of targets) {
         const r = dealDamage(source, t, dmg);
@@ -272,9 +305,10 @@ function applyEffect(eff, targets, card, source) {
     }
 
     case 'reaper': {
+      const bonus = enchantDamageBonus(card, source);
       let totalDealt = 0;
       for (const t of livingEnemies()) {
-        const r = dealDamage(source, t, eff.amount);
+        const r = dealDamage(source, t, eff.amount + bonus);
         totalDealt += r.dealt;
       }
       if (totalDealt > 0) {
@@ -285,7 +319,7 @@ function applyEffect(eff, targets, card, source) {
     }
 
     case 'block': {
-      let amount = eff.amount;
+      let amount = eff.amount + enchantBlockBonus(card, source);
       if (source === state.player) {
         forEachRelic('onBlockGain', (r) => {
           if (r.blockBonus) amount += r.blockBonus;
@@ -517,10 +551,11 @@ function applyEffect(eff, targets, card, source) {
     }
 
     case 'fiendFire': {
+      const bonus = enchantDamageBonus(card, source);
       const n = state.hand.length;
       const toDiscard = state.hand.splice(0);
       for (const c of toDiscard) state.discardPile.push(c);
-      const dmg = n * eff.amount;
+      const dmg = n * eff.amount + bonus;
       pushLog(`  Fiend Fire: discarded ${n} cards → ${dmg} damage.`);
       for (const t of targets) {
         const r = dealDamage(source, t, dmg);
