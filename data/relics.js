@@ -1,48 +1,131 @@
+// Relic system.
+// Each relic has a `trigger` string that determines when it fires.
+//
+// Triggers used:
+//   'combatStart'    — at the start of combat (block, heal, strength)
+//   'firstTurn'      — on the first player turn of combat (energy)
+//   'combatEnd'      — after winning a combat (heal)
+//   'passive'        — always active (damage modifiers, etc.)
+//   'onBlockGain'    — whenever the player gains Block from a card
+//   'onGainStrength' — whenever the player gains Strength
+//   'onLoseHp'       — whenever the player loses HP
+//   'onGoldGain'     — when combat reward gold is rolled
+//   'onTurnEnd'      — at start of turn, before block resets
+
 export const RELICS = {
-  'burning-blood': {
-    id: 'burning-blood',
-    name: 'Burning Blood',
-    text: 'At the end of combat, heal 6 HP.',
-    trigger: 'combatEnd',
-    amount: 6,
+  // ============================================================
+  // COMMON
+  // ============================================================
+  'sharpened-edge': {
+    id: 'sharpened-edge', name: 'Sharpened Edge',
+    rarity: 'common',
+    text: 'Deal 10% more damage to Vulnerable enemies.',
+    trigger: 'passive',
+    damageVsVulnerable: 1.10,
+  },
+  'leather-bracer': {
+    id: 'leather-bracer', name: 'Leather Bracer',
+    rarity: 'common',
+    text: 'Whenever you play a card that grants Block, gain 1 additional Block.',
+    trigger: 'onBlockGain',
+    blockBonus: 1,
+  },
+  'coin-purse': {
+    id: 'coin-purse', name: 'Coin Purse',
+    rarity: 'common',
+    text: '10% chance to earn double gold from combat rewards.',
+    trigger: 'onGoldGain',
+    doubleChance: 0.10,
+  },
+  'lucky-coin': {
+    id: 'lucky-coin', name: 'Lucky Coin',
+    rarity: 'common',
+    text: 'Every time you lose HP, gain 2 gold.',
+    trigger: 'onLoseHp',
+    goldPerHp: 2,
+  },
+  'blood-vial': {
+    id: 'blood-vial', name: 'Blood Vial',
+    rarity: 'common',
+    text: 'At the start of each combat, heal 3 HP.',
+    trigger: 'combatStart',
+    heal: 3,
+  },
+
+  // ============================================================
+  // UNCOMMON
+  // ============================================================
+  'battle-focus': {
+    id: 'battle-focus', name: 'Battle Focus',
+    rarity: 'uncommon',
+    text: 'Whenever you gain Strength, gain 1 Block.',
+    trigger: 'onGainStrength',
+    blockOnStrength: 1,
+  },
+  'bronze-scales': {
+    id: 'bronze-scales', name: 'Bronze Scales',
+    rarity: 'uncommon',
+    text: 'At the start of your turn, keep 50% of your Block (max 7).',
+    trigger: 'onTurnEnd',
+    keepBlockPercent: 0.5,
+    keepBlockMax: 7,
   },
   'vajra': {
-    id: 'vajra',
-    name: 'Vajra',
+    id: 'vajra', name: 'Vajra',
+    rarity: 'uncommon',
     text: 'Start each combat with 1 Strength.',
     trigger: 'combatStart',
     strength: 1,
   },
-  'anchor': {
-    id: 'anchor',
-    name: 'Anchor',
-    text: 'Start each combat with 10 Block.',
+  'iron-skin': {
+    id: 'iron-skin', name: 'Iron Skin',
+    rarity: 'uncommon',
+    text: 'Start each combat with 6 Block.',
     trigger: 'combatStart',
-    block: 10,
+    block: 6,
   },
-  'lantern': {
-    id: 'lantern',
-    name: 'Lantern',
+
+  // ============================================================
+  // RARE
+  // ============================================================
+  lantern: {
+    id: 'lantern', name: 'Lantern',
+    rarity: 'rare',
     text: 'Gain 1 extra Energy on your first turn each combat.',
     trigger: 'firstTurn',
     energy: 1,
   },
-  'blood-vial': {
-    id: 'blood-vial',
-    name: 'Blood Vial',
-    text: 'At the start of each combat, heal 2 HP.',
+  anchor: {
+    id: 'anchor', name: 'Anchor',
+    rarity: 'rare',
+    text: 'Start each combat with 10 Block.',
     trigger: 'combatStart',
-    heal: 2,
+    block: 10,
   },
 };
 
-export function randomRelicChoices(rng, count = 3) {
-  const pool = Object.keys(RELICS);
+// Weighted random relic choices. Rare relics appear less often.
+export function rollRelicChoices(rng, excluded = [], count = 3) {
+  const RARITY_WEIGHTS = { common: 60, uncommon: 30, rare: 10 };
+  const pool = Object.values(RELICS).filter(r => !excluded.includes(r.id));
   const out = [];
-  const copy = pool.slice();
-  for (let i = 0; i < count && copy.length; i++) {
-    const idx = Math.floor(rng() * copy.length);
-    out.push(copy.splice(idx, 1)[0]);
+  const remaining = pool.slice();
+
+  for (let i = 0; i < count && remaining.length > 0; i++) {
+    // Roll a rarity.
+    const totalWeight = Object.values(RARITY_WEIGHTS).reduce((a, b) => a + b, 0);
+    let roll = rng() * totalWeight;
+    let chosenRarity = 'common';
+    for (const [r, w] of Object.entries(RARITY_WEIGHTS)) {
+      roll -= w;
+      if (roll <= 0) { chosenRarity = r; break; }
+    }
+    // Find candidates of that rarity; fall back to any if none.
+    let candidates = remaining.filter(r => r.rarity === chosenRarity);
+    if (candidates.length === 0) candidates = remaining;
+    const pick = candidates[Math.floor(rng() * candidates.length)];
+    out.push(pick.id);
+    remaining.splice(remaining.indexOf(pick), 1);
   }
   return out;
 }
