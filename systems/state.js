@@ -28,6 +28,8 @@ export const state = {
   result: null,
   selectedEnemyId: null,
   pendingCardUid: null,
+  previewCardUid: null,
+  newlyDrawn: new Set(),
 
   reward: null,
   actReward: null,
@@ -71,7 +73,6 @@ export function actScaling(act) {
 
 // ---------- Relic helpers ----------
 
-// Runs fn(relic) for each owned relic matching trigger.
 export function forEachRelic(trigger, fn) {
   for (const rid of state.run.relics || []) {
     const r = RELICS[rid];
@@ -79,7 +80,6 @@ export function forEachRelic(trigger, fn) {
   }
 }
 
-// True if the player owns any relic with this trigger.
 export function hasRelicTrigger(trigger) {
   for (const rid of state.run.relics || []) {
     const r = RELICS[rid];
@@ -115,6 +115,8 @@ export function newRun(seed = Date.now()) {
   state.overlays = emptyOverlays();
   state.combatBanner = null;
   state.treasure = null;
+  state.previewCardUid = null;
+  state.newlyDrawn = new Set();
 }
 
 export function chooseRelic(relicId) {
@@ -234,6 +236,7 @@ export function backToMap() {
   state.rest = null;
   state.treasure = null;
   state.overlays = emptyOverlays();
+  state.previewCardUid = null;
 }
 
 // ---------- Combat ----------
@@ -282,11 +285,12 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   state.over = false;
   state.result = null;
   state.pendingCardUid = null;
+  state.previewCardUid = null;
+  state.newlyDrawn = new Set();
   state.selectedEnemyId = state.enemies[0]?.uid ?? null;
   state.log = [];
   state.overlays = emptyOverlays();
 
-  // --- Relic triggers: combatStart + firstTurn ---
   forEachRelic('combatStart', (r) => {
     if (r.block)  state.player.block += r.block;
     if (r.heal)   state.player.hp = Math.min(state.player.maxHp, state.player.hp + r.heal);
@@ -316,6 +320,7 @@ export function endCombat(win) {
   state.over = true;
   state.result = win ? 'win' : 'loss';
   state.turn = 'over';
+  state.previewCardUid = null;
 
   if (win) {
     const kind = state.combatKind || 'monster';
@@ -330,7 +335,6 @@ export function endCombat(win) {
 
     let coins = rollCoins(state.rng, kind);
 
-    // Relic: onGoldGain (Coin Purse)
     forEachRelic('onGoldGain', (r) => {
       if (r.doubleChance && state.rng() < r.doubleChance) {
         coins *= 2;
@@ -397,8 +401,8 @@ export function rollIntent(enemy) {
 
 export function startPlayerTurn(isFirstTurn = false) {
   state.turn = 'player';
+  state.previewCardUid = null;
   if (!isFirstTurn) {
-    // Relic: onTurnEnd (Bronze Scales) — keep a portion of leftover block.
     let keepPercent = 0;
     let keepMax = 999;
     forEachRelic('onTurnEnd', (r) => {
