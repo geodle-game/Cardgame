@@ -19,6 +19,10 @@ import { ENEMY_CARDS } from '../data/enemy-cards.js';
 import { NODE_TYPES } from '../data/maps.js';
 import { getNode, reachableFrom, startingNodes } from '../systems/map.js';
 
+// Track the last click time to ignore duplicate click events that some
+// browsers (especially iPad Safari) fire on a single tap.
+let _lastCardClickAt = 0;
+
 export function render() {
   const app = document.getElementById('app');
   app.innerHTML = '';
@@ -687,7 +691,7 @@ function renderCombat(app) {
   } else if (state.previewCardUid) {
     const hint = document.createElement('div');
     hint.className = 'target-hint preview-hint';
-    hint.textContent = 'Tap again to play';
+    hint.textContent = 'Tap again to play · Tap elsewhere to cancel';
     c.appendChild(hint);
   }
 
@@ -696,19 +700,24 @@ function renderCombat(app) {
   const n = state.hand.length;
   state.hand.forEach((card, i) => {
     const el = cardInHand(card);
+    // Arc math: t goes from -1 (leftmost) to +1 (rightmost).
     const t = n === 1 ? 0 : (i - (n - 1) / 2) / ((n - 1) / 2);
-    const maxAngle = 11;
-    const maxDrop = 20;
-    el.style.setProperty('--card-rot', (t * maxAngle).toFixed(2) + 'deg');
-    el.style.setProperty('--card-offy', (Math.abs(t) * maxDrop).toFixed(1) + 'px');
-    el.style.setProperty('--card-delay', (i * 45) + 'ms');
+    const maxAngle = 14;
+    const maxDrop = 34;
+    const rot = t * maxAngle;
+    // Quadratic drop makes a smoother fan — flat in the middle,
+    // edges droop noticeably.
+    const drop = Math.pow(Math.abs(t), 1.8) * maxDrop;
+    el.style.setProperty('--card-rot', rot.toFixed(2) + 'deg');
+    el.style.setProperty('--card-offy', drop.toFixed(1) + 'px');
+    el.style.setProperty('--card-delay', (i * 55) + 'ms');
     hand.appendChild(el);
   });
   c.appendChild(hand);
 
   c.appendChild(bottomBar());
 
-  // Click on empty space clears the preview.
+  // Clicking empty space anywhere in combat clears the preview.
   c.addEventListener('click', () => {
     if (state.previewCardUid) {
       state.previewCardUid = null;
@@ -829,7 +838,6 @@ function cardInHand(card) {
   if (state.pendingCardUid === card.uid) el.classList.add('pending');
   if (state.previewCardUid === card.uid) el.classList.add('preview');
 
-  // Draw animation: only newly drawn cards animate.
   if (state.newlyDrawn?.has(card.uid)) {
     el.classList.add('drawing');
     state.newlyDrawn.delete(card.uid);
@@ -839,21 +847,19 @@ function cardInHand(card) {
     e.stopPropagation();
     if (!canPlay(card)) return;
 
-    // If this card is already previewed, tapping it again plays it.
+    // Guard against iPad Safari firing two click events on a single tap.
+    const now = Date.now();
+    if (now - _lastCardClickAt < 150) return;
+    _lastCardClickAt = now;
+
     if (state.previewCardUid === card.uid) {
+      // Second tap on the previewed card → play it.
       tryPlayCard(card, el);
       return;
     }
-    // Otherwise, preview it.
+    // First tap → preview.
     state.previewCardUid = card.uid;
     render();
-  });
-
-  // Double-tap also plays directly.
-  el.addEventListener('dblclick', (e) => {
-    e.stopPropagation();
-    if (!canPlay(card)) return;
-    tryPlayCard(card, el);
   });
 
   return el;
