@@ -3,13 +3,44 @@
 //   'discard' = goes to discard pile
 //   'exhaust' = removed from combat entirely
 // retain: true means the card always stays in hand at end of turn.
-// In addition to explicit retain, 50% of remaining hand retains (handled in deck.js).
 //
-// liveValues(state) → { key: "text to render in green" }
-// Card text uses {key} placeholders. Empty string hides the placeholder.
+// liveValues(state, ctx) → { key: "value to render in green" }
+// ctx = { attacker, target, allTargets }
+// Empty string hides the placeholder.
 
-function livingCount(s) {
-  return (s.enemies || []).filter(e => e.hp > 0).length;
+// --- Damage math shared by player AND enemy cards ---
+export function damageFromContext(attacker, target, base, strengthMultiplier = 1) {
+  if (!attacker || !target) return null;
+  const scale = attacker.damageScale ?? 1;
+  const strBonus = (attacker.statuses?.strength || 0) * (strengthMultiplier ?? 1);
+  let dmg = (base * scale) + strBonus;
+  if (attacker.statuses?.weak) dmg *= 0.75;
+  if (target.statuses?.vulnerable) dmg *= 1.5;
+  return Math.max(0, Math.floor(dmg));
+}
+
+// Helper that produces " (N)" when the value differs from the printed base.
+export function liveDamage(base, opts = {}) {
+  return (s, ctx) => {
+    if (!ctx || !ctx.attacker || !ctx.target) return { live: '' };
+    const v = damageFromContext(ctx.attacker, ctx.target, base, opts.mult ?? 1);
+    if (v == null || v === base) return { live: '' };
+    return { live: ` (${v})` };
+  };
+}
+
+// Helper for AoE: shows per-target and total.
+export function liveAoE(base) {
+  return (s, ctx) => {
+    if (!ctx || !ctx.attacker || !ctx.target) return { live: '' };
+    const living = (s.enemies || []).filter(e => e.hp > 0);
+    if (living.length === 0) return { live: '' };
+    const per = damageFromContext(ctx.attacker, ctx.target, base);
+    const total = living.reduce((sum, e) => sum + damageFromContext(ctx.attacker, e, base), 0);
+    if (living.length === 1 && per === base) return { live: '' };
+    if (living.length === 1) return { live: ` (${per})` };
+    return { live: ` (${per} each, ${total} total)` };
+  };
 }
 
 export const CARDS = {
@@ -19,8 +50,9 @@ export const CARDS = {
   strike: {
     id: 'strike', name: 'Strike', cost: 1, rarity: 'starter',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 6 damage.',
+    text: 'Deal 6 damage.{live}',
     effects: [{ kind: 'damage', amount: 6 }],
+    liveValues: liveDamage(6),
   },
   defend: {
     id: 'defend', name: 'Defend', cost: 1, rarity: 'starter',
@@ -31,20 +63,22 @@ export const CARDS = {
   bash: {
     id: 'bash', name: 'Bash', cost: 2, rarity: 'starter',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 8 damage. Apply 2 Vulnerable.',
+    text: 'Deal 8 damage.{live} Apply 2 Vulnerable.',
     effects: [
       { kind: 'damage', amount: 8 },
       { kind: 'applyStatus', status: 'vulnerable', amount: 2 },
     ],
+    liveValues: liveDamage(8),
   },
   neutralize: {
     id: 'neutralize', name: 'Neutralize', cost: 0, rarity: 'starter',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 3 damage. Apply 1 Weak. Exhaust.',
+    text: 'Deal 3 damage.{live} Apply 1 Weak. Exhaust.',
     effects: [
       { kind: 'damage', amount: 3 },
       { kind: 'applyStatus', status: 'weak', amount: 1 },
     ],
+    liveValues: liveDamage(3),
   },
 
   // ================================================================
@@ -53,86 +87,94 @@ export const CARDS = {
   cleave: {
     id: 'cleave', name: 'Cleave', cost: 1, rarity: 'common',
     type: 'attack', target: 'all-enemies', destination: 'exhaust',
-    text: 'Deal 8 damage to all enemies.{live}',
+    text: 'Deal 8 damage to all enemies.{live} Exhaust.',
     effects: [{ kind: 'damage', amount: 8 }],
-    liveValues: (s) => {
-      const n = livingCount(s);
-      if (!s.player || n <= 1) return { live: '' };
-      return { live: ` (${8 * n} total)` };
-    },
+    liveValues: liveAoE(8),
   },
   'body-slam': {
     id: 'body-slam', name: 'Body Slam', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
     text: 'Deal damage equal to your Block.{live}',
     effects: [{ kind: 'damageEqualToBlock' }],
-    liveValues: (s) => {
-      if (!s.player) return { live: '' };
-      return { live: ` (${s.player.block} damage)` };
+    liveValues: (s, ctx) => {
+      if (!s.player || !ctx?.target) return { live: '' };
+      const v = damageFromContext(
+        { ...s.player, damageScale: 1 },
+        ctx.target,
+        s.player.block,
+      );
+      if (v == null) return { live: '' };
+      return { live: ` (${v})` };
     },
   },
   'iron-wave': {
     id: 'iron-wave', name: 'Iron Wave', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Gain 5 Block. Deal 5 damage. Exhaust.',
+    text: 'Gain 5 Block. Deal 5 damage.{live} Exhaust.',
     effects: [
       { kind: 'block', amount: 5 },
       { kind: 'damage', amount: 5 },
     ],
+    liveValues: liveDamage(5),
   },
   'pommel-strike': {
     id: 'pommel-strike', name: 'Pommel Strike', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 9 damage. Draw 1.',
+    text: 'Deal 9 damage.{live} Draw 1.',
     effects: [
       { kind: 'damage', amount: 9 },
       { kind: 'draw', amount: 1 },
     ],
+    liveValues: liveDamage(9),
   },
   'twin-strike': {
     id: 'twin-strike', name: 'Twin Strike', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 5 damage twice. Exhaust.',
+    text: 'Deal 5 damage twice.{live} Exhaust.',
     effects: [
       { kind: 'damage', amount: 5 },
       { kind: 'damage', amount: 5 },
     ],
+    liveValues: (s, ctx) => {
+      if (!ctx?.attacker || !ctx?.target) return { live: '' };
+      const per = damageFromContext(ctx.attacker, ctx.target, 5);
+      if (per === 5) return { live: '' };
+      return { live: ` (${per} each)` };
+    },
   },
   anger: {
     id: 'anger', name: 'Anger', cost: 0, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'draw', retain: true,
-    text: 'Deal 6 damage. Retain.',
+    text: 'Deal 6 damage.{live} Retain.',
     effects: [{ kind: 'damage', amount: 6 }],
+    liveValues: liveDamage(6),
   },
   'quick-slash': {
     id: 'quick-slash', name: 'Quick Slash', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 8 damage. Draw 2.',
+    text: 'Deal 8 damage.{live} Draw 2.',
     effects: [
       { kind: 'damage', amount: 8 },
       { kind: 'draw', amount: 2 },
     ],
+    liveValues: liveDamage(8),
   },
   clothesline: {
     id: 'clothesline', name: 'Clothesline', cost: 2, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 12 damage. Apply 2 Weak. Exhaust.',
+    text: 'Deal 12 damage.{live} Apply 2 Weak. Exhaust.',
     effects: [
       { kind: 'damage', amount: 12 },
       { kind: 'applyStatus', status: 'weak', amount: 2 },
     ],
+    liveValues: liveDamage(12),
   },
   'heavy-blade': {
     id: 'heavy-blade', name: 'Heavy Blade', cost: 2, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
     text: 'Deal 14 damage. Strength counts 3×.{live} Exhaust.',
     effects: [{ kind: 'damage', amount: 14, strengthMultiplier: 3 }],
-    liveValues: (s) => {
-      if (!s.player) return { live: '' };
-      const str = s.player.statuses?.strength || 0;
-      if (str === 0) return { live: '' };
-      return { live: ` (${14 + 3 * str} with Strength)` };
-    },
+    liveValues: liveDamage(14, { mult: 3 }),
   },
   'sword-boomerang': {
     id: 'sword-boomerang', name: 'Sword Boomerang', cost: 2, rarity: 'common',
@@ -142,74 +184,101 @@ export const CARDS = {
       { kind: 'damage', amount: 6 },
       { kind: 'damage', amount: 6 },
     ],
-    liveValues: (s) => {
-      const n = livingCount(s);
-      if (!s.player || n <= 1) return { live: '' };
-      return { live: ` (${6 * 2 * n} total)` };
+    liveValues: (s, ctx) => {
+      if (!ctx?.attacker || !ctx?.target) return { live: '' };
+      const living = (s.enemies || []).filter(e => e.hp > 0);
+      if (!living.length) return { live: '' };
+      const perHit = damageFromContext(ctx.attacker, ctx.target, 6);
+      const perTarget = perHit * 2;
+      const total = living.reduce((sum, e) => sum + damageFromContext(ctx.attacker, e, 6) * 2, 0);
+      if (living.length === 1 && perTarget === 12) return { live: '' };
+      if (living.length === 1) return { live: ` (${perTarget})` };
+      return { live: ` (${perTarget} each, ${total} total)` };
     },
   },
   headbutt: {
     id: 'headbutt', name: 'Headbutt', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 9 damage. Put a random card from your discard pile on top of your draw pile. Exhaust.',
+    text: 'Deal 9 damage.{live} Put a random card from your discard pile on top of your draw pile. Exhaust.',
     effects: [
       { kind: 'damage', amount: 9 },
       { kind: 'recoverFromDiscard' },
     ],
+    liveValues: liveDamage(9),
   },
   'perfected-strike': {
     id: 'perfected-strike', name: 'Perfected Strike', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
     text: 'Deal {damage} damage. +2 damage per card with "Strike" in your deck.{live}',
     effects: [{ kind: 'perfectedStrike', base: 6, perStrike: 2 }],
-    liveValues: (s) => {
+    liveValues: (s, ctx) => {
       if (!s.run?.deckIds) return { damage: '6', live: '' };
       const strikes = s.run.deckIds.filter(id => id.includes('strike')).length;
+      const base = 6 + 2 * strikes;
+      const computed = ctx?.attacker && ctx?.target
+        ? damageFromContext(ctx.attacker, ctx.target, base)
+        : base;
+      const showBracket = ctx?.attacker && ctx?.target && computed !== base;
       return {
-        damage: String(6 + 2 * strikes),
-        live: strikes > 0 ? ` (${strikes} Strike cards)` : '',
+        damage: String(base),
+        live: showBracket ? ` (${computed})` : (strikes > 0 ? ` (${strikes} Strikes)` : ''),
       };
     },
   },
   'reckless-charge': {
     id: 'reckless-charge', name: 'Reckless Charge', cost: 0, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 7 damage. Shuffle a Dazed into your draw pile. Exhaust.',
+    text: 'Deal 7 damage.{live} Shuffle a Dazed into your draw pile. Exhaust.',
     effects: [
       { kind: 'damage', amount: 7 },
       { kind: 'addCardToDraw', cardId: 'dazed' },
     ],
+    liveValues: liveDamage(7),
   },
   dropkick: {
     id: 'dropkick', name: 'Dropkick', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 5 damage. If target is Vulnerable, gain 1 Energy and draw 1.',
+    text: 'Deal 5 damage.{live} If target is Vulnerable, gain 1 Energy and draw 1.',
     effects: [
       { kind: 'damage', amount: 5 },
       { kind: 'dropkick' },
     ],
+    liveValues: liveDamage(5),
   },
   uppercut: {
     id: 'uppercut', name: 'Uppercut', cost: 2, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 13 damage. Apply 2 Weak and 2 Vulnerable. Exhaust.',
+    text: 'Deal 13 damage.{live} Apply 2 Weak and 2 Vulnerable. Exhaust.',
     effects: [
       { kind: 'damage', amount: 13 },
       { kind: 'applyStatus', status: 'weak', amount: 2 },
       { kind: 'applyStatus', status: 'vulnerable', amount: 2 },
     ],
+    liveValues: liveDamage(13),
   },
   finisher: {
     id: 'finisher', name: 'Finisher', cost: 1, rarity: 'common',
     type: 'attack', target: 'random-enemy', destination: 'exhaust',
-    text: 'Deal 6 damage to a random enemy for each Attack played this turn. Exhaust.',
+    text: 'Deal 6 damage to a random enemy for each Attack played this turn.{live} Exhaust.',
     effects: [{ kind: 'finisher', amount: 6 }],
+    liveValues: (s, ctx) => {
+      if (!ctx?.attacker || !ctx?.target) return { live: '' };
+      const per = damageFromContext(ctx.attacker, ctx.target, 6);
+      if (per === 6) return { live: '' };
+      return { live: ` (${per} each)` };
+    },
   },
   rampage: {
     id: 'rampage', name: 'Rampage', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: "Deal 8 damage. Permanently increase this card's damage by 5 this combat.",
+    text: "Deal 8 damage. Permanently increase this card's damage by 5 this combat.{live}",
     effects: [{ kind: 'rampage', base: 8, per: 5 }],
+    liveValues: (s, ctx) => {
+      if (!ctx?.attacker || !ctx?.target) return { live: '' };
+      const computed = damageFromContext(ctx.attacker, ctx.target, 8);
+      if (computed === 8) return { live: '' };
+      return { live: ` (${computed})` };
+    },
   },
 
   // ================================================================
@@ -240,8 +309,9 @@ export const CARDS = {
   'forked-strike': {
     id: 'forked-strike', name: 'Forked Strike', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard', retain: true,
-    text: 'Deal 7 damage. Retain.',
+    text: 'Deal 7 damage.{live} Retain.',
     effects: [{ kind: 'damage', amount: 7 }],
+    liveValues: liveDamage(7),
   },
   'echo-shield': {
     id: 'echo-shield', name: 'Echo Shield', cost: 1, rarity: 'common',
@@ -252,8 +322,9 @@ export const CARDS = {
   rebound: {
     id: 'rebound', name: 'Rebound', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard', retain: true,
-    text: 'Deal 9 damage. Retain.',
+    text: 'Deal 9 damage.{live} Retain.',
     effects: [{ kind: 'damage', amount: 9 }],
+    liveValues: liveDamage(9),
   },
   foresight: {
     id: 'foresight', name: 'Foresight', cost: 0, rarity: 'rare',
@@ -308,11 +379,14 @@ export const CARDS = {
     type: 'attack', target: 'enemy', destination: 'discard',
     text: 'Put all cards in your hand into your discard pile. Deal 2 damage per card discarded.{live}',
     effects: [{ kind: 'fiendFire', amount: 2 }],
-    liveValues: (s) => {
-      if (!s.player || !s.hand) return { live: '' };
+    liveValues: (s, ctx) => {
+      if (!s.player || !s.hand || !ctx?.target) return { live: '' };
       const n = s.hand.length;
       if (n === 0) return { live: '' };
-      return { live: ` (${n * 2} damage)` };
+      const base = n * 2;
+      const computed = damageFromContext(ctx.attacker, ctx.target, base);
+      if (computed === base) return { live: ` (${base})` };
+      return { live: ` (${computed})` };
     },
   },
   corruption: {
@@ -404,9 +478,10 @@ export const CARDS = {
   'blood-for-blood': {
     id: 'blood-for-blood', name: 'Blood for Blood', cost: 3, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Costs 1 less per 8 HP lost this combat. Deal 18 damage. Exhaust.',
+    text: 'Costs 1 less per 8 HP lost this combat. Deal 18 damage.{live} Exhaust.',
     effects: [{ kind: 'damage', amount: 18 }],
     costReduction: { kind: 'hpLost', per: 8, min: 0 },
+    liveValues: liveDamage(18),
   },
   'seeing-red': {
     id: 'seeing-red', name: 'Seeing Red', cost: 1, rarity: 'common',
@@ -452,12 +527,16 @@ export const CARDS = {
     text: 'Deal 5 damage to ALL enemies X times.{live} Costs all your Energy. Exhaust.',
     effects: [{ kind: 'whirlwind', amount: 5 }],
     xCost: true,
-    liveValues: (s) => {
-      if (!s.player) return { live: '' };
-      const n = livingCount(s);
+    liveValues: (s, ctx) => {
+      if (!ctx?.attacker || !ctx?.target) return { live: '' };
       const energy = s.energy ?? 0;
-      if (n === 0 || energy === 0) return { live: '' };
-      return { live: ` (${5 * energy * n} total)` };
+      if (energy === 0) return { live: '' };
+      const living = (s.enemies || []).filter(e => e.hp > 0);
+      if (!living.length) return { live: '' };
+      const perTarget = damageFromContext(ctx.attacker, ctx.target, 5) * energy;
+      const total = living.reduce((sum, e) => sum + damageFromContext(ctx.attacker, e, 5) * energy, 0);
+      if (living.length === 1) return { live: ` (${perTarget})` };
+      return { live: ` (${perTarget} each, ${total} total)` };
     },
   },
 
@@ -470,10 +549,12 @@ export const CARDS = {
     endsTurn: true,
     text: 'End your turn. Deal 6 damage plus 1 per card in your hand.{live}',
     effects: [{ kind: 'lastStand', base: 6 }],
-    liveValues: (s) => {
-      if (!s.hand) return { live: '' };
-      const n = s.hand.length;
-      return { live: ` (${6 + n} damage)` };
+    liveValues: (s, ctx) => {
+      if (!s.hand || !ctx?.attacker || !ctx?.target) return { live: '' };
+      const base = 6 + s.hand.length;
+      const computed = damageFromContext(ctx.attacker, ctx.target, base);
+      if (computed === base) return { live: ` (${base})` };
+      return { live: ` (${computed})` };
     },
   },
   reaper: {
@@ -481,11 +562,7 @@ export const CARDS = {
     type: 'attack', target: 'all-enemies', destination: 'exhaust',
     text: 'Deal 4 damage to all enemies.{live} Heal HP equal to unblocked damage dealt. Exhaust.',
     effects: [{ kind: 'reaper', amount: 4 }],
-    liveValues: (s) => {
-      const n = livingCount(s);
-      if (!s.player || n <= 1) return { live: '' };
-      return { live: ` (${4 * n} total)` };
-    },
+    liveValues: liveAoE(4),
   },
   adrenaline: {
     id: 'adrenaline', name: 'Adrenaline', cost: 0, rarity: 'rare',
@@ -508,8 +585,9 @@ export const CARDS = {
   bludgeon: {
     id: 'bludgeon', name: 'Bludgeon', cost: 3, rarity: 'rare',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 32 damage. Exhaust.',
+    text: 'Deal 32 damage.{live} Exhaust.',
     effects: [{ kind: 'damage', amount: 32 }],
+    liveValues: liveDamage(32),
   },
   impervious: {
     id: 'impervious', name: 'Impervious', cost: 2, rarity: 'rare',
@@ -520,11 +598,12 @@ export const CARDS = {
   feed: {
     id: 'feed', name: 'Feed', cost: 1, rarity: 'rare',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 10 damage. If this kills, gain 3 Max HP. Exhaust.',
+    text: 'Deal 10 damage.{live} If this kills, gain 3 Max HP. Exhaust.',
     effects: [
       { kind: 'damage', amount: 10 },
       { kind: 'feed', amount: 3 },
     ],
+    liveValues: liveDamage(10),
   },
   'demon-form': {
     id: 'demon-form', name: 'Demon Form', cost: 3, rarity: 'rare',
