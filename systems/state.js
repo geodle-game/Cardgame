@@ -9,6 +9,7 @@ import { rollCoins, rollCardChoices, rollActTransition } from './rewards.js';
 import { randomEvent } from '../data/events.js';
 import { rollShop } from '../data/shop.js';
 import { bannerForCombat } from '../data/banners.js';
+import { rollEnchant, getEnchant } from '../data/enchants.js';
 
 export const state = {
   screen: 'relicPick',
@@ -31,9 +32,6 @@ export const state = {
   previewCardUid: null,
   newlyDrawn: new Set(),
 
-  // Transient list of damage events fired during the last card play or
-  // enemy turn. Read and cleared by the renderer so it can animate each
-  // hit individually.
   lastHits: [],
   currentAnimation: null,
 
@@ -43,6 +41,7 @@ export const state = {
   event: null,
   shop: null,
   rest: null,
+  pendingEnchant: null,
 
   overlays: { deck: false, relics: false, draw: false, discard: false, exhaust: false },
 
@@ -66,8 +65,6 @@ function emptyOverlays() {
   return { deck: false, relics: false, draw: false, discard: false, exhaust: false };
 }
 
-// ---------- Act scaling ----------
-
 export function actScaling(act) {
   const table = {
     1: { hp: 1.0,  damage: 1.0  },
@@ -76,8 +73,6 @@ export function actScaling(act) {
   };
   return table[act] ?? table[1];
 }
-
-// ---------- Relic helpers ----------
 
 export function forEachRelic(trigger, fn) {
   for (const rid of state.run.relics || []) {
@@ -94,7 +89,10 @@ export function hasRelicTrigger(trigger) {
   return false;
 }
 
-// ---------- Run setup ----------
+// Deck entries are { defId, enchant: string|null }.
+function makeDeckEntry(defId) {
+  return { defId, enchant: null };
+}
 
 export function newRun(seed = Date.now()) {
   state.rng = makeRng(seed);
@@ -105,7 +103,7 @@ export function newRun(seed = Date.now()) {
     gold: 99,
     relic: null,
     relics: [],
-    deckIds: [],
+    deck: [],
     map: null,
     currentNodeId: null,
     floor: -1,
@@ -125,12 +123,13 @@ export function newRun(seed = Date.now()) {
   state.newlyDrawn = new Set();
   state.lastHits = [];
   state.currentAnimation = null;
+  state.pendingEnchant = null;
 }
 
 export function chooseRelic(relicId) {
   state.run.relic = relicId;
   state.run.relics = [relicId];
-  state.run.deckIds = randomStartingDeck(state.rng, 8);
+  state.run.deck = randomStartingDeck(state.rng, 8).map(makeDeckEntry);
   state.screen = 'deckView';
 }
 
@@ -140,8 +139,6 @@ export function confirmDeck() {
   state.run.floor = -1;
   state.screen = 'map';
 }
-
-// ---------- Overlays ----------
 
 export function closeOverlays() {
   state.overlays = emptyOverlays();
@@ -157,8 +154,6 @@ export function toggleRelicOverlay()   { openOnly(state.overlays.relics  ? null 
 export function toggleDrawOverlay()    { openOnly(state.overlays.draw    ? null : 'draw'); }
 export function toggleDiscardOverlay() { openOnly(state.overlays.discard ? null : 'discard'); }
 export function toggleExhaustOverlay() { openOnly(state.overlays.exhaust ? null : 'exhaust'); }
-
-// ---------- Map ----------
 
 export function startNode(nodeId) {
   const node = getNode(state.run.map, nodeId);
@@ -243,11 +238,10 @@ export function backToMap() {
   state.shop = null;
   state.rest = null;
   state.treasure = null;
+  state.pendingEnchant = null;
   state.overlays = emptyOverlays();
   state.previewCardUid = null;
 }
-
-// ---------- Combat ----------
 
 export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   state.player = {
@@ -284,7 +278,11 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
     };
   });
 
-  state.drawPile = shuffle(state.run.deckIds.map(makeCard), state.rng);
+  // Deck entries carry enchants through into combat as card instances.
+  state.drawPile = shuffle(
+    state.run.deck.map(entry => makeCard(entry.defId, entry.enchant)),
+    state.rng,
+  );
   state.hand = [];
   state.discardPile = [];
   state.exhaustPile = [];
@@ -344,7 +342,6 @@ export function endCombat(win) {
     }
 
     let coins = rollCoins(state.rng, kind);
-
     forEachRelic('onGoldGain', (r) => {
       if (r.doubleChance && state.rng() < r.doubleChance) {
         coins *= 2;
@@ -376,7 +373,7 @@ export function nextAct() {
 
 export function takeActRewardCard(defId) {
   if (!state.actReward || state.actReward.cardTaken) return;
-  state.run.deckIds.push(defId);
+  state.run.deck.push(makeDeckEntry(defId));
   state.actReward.cardTaken = true;
 }
 
@@ -449,9 +446,9 @@ export function claimReward() {
 
 export function takeRewardCard(defId) {
   if (!state.reward || state.reward.taken) return;
-  state.run.deckIds.push(defId);
+  state.run.deck.push(makeDeckEntry(defId));
   state.reward.taken = true;
-  pushLog(`Added ${defId} to your deck.`);
+  pushLog(`Added ${CARDS[defId].name} to your deck.`);
 }
 
 export function skipRewardCard() {
@@ -480,7 +477,7 @@ function applyMetaEffect(eff) {
     state.run.hp = Math.max(1, state.run.hp - eff.amount);
   } else if (eff.kind === 'grantRandomCard') {
     const [id] = rollCardChoices(state.rng, 1);
-    if (id) state.run.deckIds.push(id);
+    if (id) state.run.deck.push(makeDeckEntry(id));
   }
 }
 
@@ -492,7 +489,7 @@ export function buyShopCard(index) {
   if (!item) return;
   if (state.run.gold < item.price) return;
   state.run.gold -= item.price;
-  state.run.deckIds.push(item.defId);
+  state.run.deck.push(makeDeckEntry(item.defId));
   state.shop.items.splice(index, 1);
   pushLog(`Bought ${CARDS[item.defId].name} for ${item.price} gold.`);
 }
@@ -514,9 +511,44 @@ export function restHeal() {
   backToMap();
 }
 
-export function restUpgrade() {
-  const amount = Math.floor(state.run.maxHp * 0.1);
-  state.run.hp = Math.min(state.run.maxHp, state.run.hp + amount);
-  pushLog(`Meditated, healed ${amount}.`);
+// Start an enchant session. Rolls a random enchant and moves to the
+// enchant-pick screen. If the deck has no enchantable cards, refunds.
+export function restEnchantStart() {
+  const eligible = state.run.deck
+    .map((entry, i) => entry.enchant ? -1 : i)
+    .filter(i => i >= 0);
+
+  if (eligible.length === 0) {
+    pushLog('No enchantable cards in deck.');
+    backToMap();
+    return;
+  }
+
+  const enchant = rollEnchant(state.rng);
+  state.pendingEnchant = {
+    enchantId: enchant.id,
+    eligibleIndices: eligible,
+  };
+  state.screen = 'enchantPick';
+}
+
+// Apply the pending enchant to a specific deck index. Index must be
+// one of the eligible (un-enchanted) indices recorded at roll time.
+export function applyEnchant(index) {
+  if (!state.pendingEnchant) return;
+  if (!state.pendingEnchant.eligibleIndices.includes(index)) return;
+  const entry = state.run.deck[index];
+  if (!entry || entry.enchant) return;
+
+  entry.enchant = state.pendingEnchant.enchantId;
+  const enchant = getEnchant(state.pendingEnchant.enchantId);
+  pushLog(`Enchanted ${CARDS[entry.defId].name} with ${enchant.name}.`);
+  state.pendingEnchant = null;
+  backToMap();
+}
+
+export function skipEnchant() {
+  if (!state.pendingEnchant) return;
+  state.pendingEnchant = null;
   backToMap();
 }
