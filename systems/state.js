@@ -31,6 +31,12 @@ export const state = {
   previewCardUid: null,
   newlyDrawn: new Set(),
 
+  // Transient list of damage events fired during the last card play or
+  // enemy turn. Read and cleared by the renderer so it can animate each
+  // hit individually.
+  lastHits: [],
+  currentAnimation: null,
+
   reward: null,
   actReward: null,
   treasure: null,
@@ -117,6 +123,8 @@ export function newRun(seed = Date.now()) {
   state.treasure = null;
   state.previewCardUid = null;
   state.newlyDrawn = new Set();
+  state.lastHits = [];
+  state.currentAnimation = null;
 }
 
 export function chooseRelic(relicId) {
@@ -287,6 +295,8 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   state.pendingCardUid = null;
   state.previewCardUid = null;
   state.newlyDrawn = new Set();
+  state.lastHits = [];
+  state.currentAnimation = null;
   state.selectedEnemyId = state.enemies[0]?.uid ?? null;
   state.log = [];
   state.overlays = emptyOverlays();
