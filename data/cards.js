@@ -4,6 +4,13 @@
 //   'exhaust' = removed from combat entirely
 // retain: true means the card always stays in hand at end of turn.
 // In addition to explicit retain, 50% of remaining hand retains (handled in deck.js).
+//
+// liveValues(state) → { key: "text to render in green" }
+// Card text uses {key} placeholders. Empty string hides the placeholder.
+
+function livingCount(s) {
+  return (s.enemies || []).filter(e => e.hp > 0).length;
+}
 
 export const CARDS = {
   // ================================================================
@@ -46,14 +53,23 @@ export const CARDS = {
   cleave: {
     id: 'cleave', name: 'Cleave', cost: 1, rarity: 'common',
     type: 'attack', target: 'all-enemies', destination: 'exhaust',
-    text: 'Deal 8 damage to all enemies. Exhaust.',
+    text: 'Deal 8 damage to all enemies.{live}',
     effects: [{ kind: 'damage', amount: 8 }],
+    liveValues: (s) => {
+      const n = livingCount(s);
+      if (!s.player || n <= 1) return { live: '' };
+      return { live: ` (${8 * n} total)` };
+    },
   },
   'body-slam': {
     id: 'body-slam', name: 'Body Slam', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal damage equal to your Block.',
+    text: 'Deal damage equal to your Block.{live}',
     effects: [{ kind: 'damageEqualToBlock' }],
+    liveValues: (s) => {
+      if (!s.player) return { live: '' };
+      return { live: ` (${s.player.block} damage)` };
+    },
   },
   'iron-wave': {
     id: 'iron-wave', name: 'Iron Wave', cost: 1, rarity: 'common',
@@ -109,17 +125,28 @@ export const CARDS = {
   'heavy-blade': {
     id: 'heavy-blade', name: 'Heavy Blade', cost: 2, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'exhaust',
-    text: 'Deal 14 damage. Strength counts 3×. Exhaust.',
+    text: 'Deal 14 damage. Strength counts 3×.{live} Exhaust.',
     effects: [{ kind: 'damage', amount: 14, strengthMultiplier: 3 }],
+    liveValues: (s) => {
+      if (!s.player) return { live: '' };
+      const str = s.player.statuses?.strength || 0;
+      if (str === 0) return { live: '' };
+      return { live: ` (${14 + 3 * str} with Strength)` };
+    },
   },
   'sword-boomerang': {
     id: 'sword-boomerang', name: 'Sword Boomerang', cost: 2, rarity: 'common',
     type: 'attack', target: 'all-enemies', destination: 'exhaust',
-    text: 'Deal 6 damage to all enemies twice. Exhaust.',
+    text: 'Deal 6 damage to all enemies twice.{live} Exhaust.',
     effects: [
       { kind: 'damage', amount: 6 },
       { kind: 'damage', amount: 6 },
     ],
+    liveValues: (s) => {
+      const n = livingCount(s);
+      if (!s.player || n <= 1) return { live: '' };
+      return { live: ` (${6 * 2 * n} total)` };
+    },
   },
   headbutt: {
     id: 'headbutt', name: 'Headbutt', cost: 1, rarity: 'common',
@@ -133,8 +160,16 @@ export const CARDS = {
   'perfected-strike': {
     id: 'perfected-strike', name: 'Perfected Strike', cost: 1, rarity: 'common',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Deal 6 damage. +2 damage per card with "Strike" in your deck.',
+    text: 'Deal {damage} damage. +2 damage per card with "Strike" in your deck.{live}',
     effects: [{ kind: 'perfectedStrike', base: 6, perStrike: 2 }],
+    liveValues: (s) => {
+      if (!s.run?.deckIds) return { damage: '6', live: '' };
+      const strikes = s.run.deckIds.filter(id => id.includes('strike')).length;
+      return {
+        damage: String(6 + 2 * strikes),
+        live: strikes > 0 ? ` (${strikes} Strike cards)` : '',
+      };
+    },
   },
   'reckless-charge': {
     id: 'reckless-charge', name: 'Reckless Charge', cost: 0, rarity: 'common',
@@ -175,16 +210,6 @@ export const CARDS = {
     type: 'attack', target: 'enemy', destination: 'discard',
     text: "Deal 8 damage. Permanently increase this card's damage by 5 this combat.",
     effects: [{ kind: 'rampage', base: 8, per: 5 }],
-  },
-
-  // ================================================================
-  // NEW: Expose — heavy Vulnerable applier
-  // ================================================================
-  expose: {
-    id: 'expose', name: 'Expose', cost: 1, rarity: 'common',
-    type: 'skill', target: 'enemy', destination: 'exhaust',
-    text: 'Apply 3 Vulnerable. Exhaust.',
-    effects: [{ kind: 'applyStatus', status: 'vulnerable', amount: 3 }],
   },
 
   // ================================================================
@@ -230,7 +255,6 @@ export const CARDS = {
     text: 'Deal 9 damage. Retain.',
     effects: [{ kind: 'damage', amount: 9 }],
   },
-  // --- Foresight (epic): free block + draw, retains, self-cycles.
   foresight: {
     id: 'foresight', name: 'Foresight', cost: 0, rarity: 'rare',
     type: 'skill', target: 'self', destination: 'draw', retain: true,
@@ -242,9 +266,14 @@ export const CARDS = {
   },
 
   // ================================================================
-  // BLOCK CARDS
+  // NEW CARDS
   // ================================================================
-  // --- Blood Wall: big block, costs HP.
+  expose: {
+    id: 'expose', name: 'Expose', cost: 1, rarity: 'common',
+    type: 'skill', target: 'enemy', destination: 'exhaust',
+    text: 'Apply 3 Vulnerable. Exhaust.',
+    effects: [{ kind: 'applyStatus', status: 'vulnerable', amount: 3 }],
+  },
   'blood-wall': {
     id: 'blood-wall', name: 'Blood Wall', cost: 1, rarity: 'common',
     type: 'skill', target: 'self', destination: 'discard',
@@ -277,8 +306,14 @@ export const CARDS = {
   'fiend-fire': {
     id: 'fiend-fire', name: 'Fiend Fire', cost: 2, rarity: 'rare',
     type: 'attack', target: 'enemy', destination: 'discard',
-    text: 'Put all cards in your hand into your discard pile. Deal 2 damage per card discarded.',
+    text: 'Put all cards in your hand into your discard pile. Deal 2 damage per card discarded.{live}',
     effects: [{ kind: 'fiendFire', amount: 2 }],
+    liveValues: (s) => {
+      if (!s.player || !s.hand) return { live: '' };
+      const n = s.hand.length;
+      if (n === 0) return { live: '' };
+      return { live: ` (${n * 2} damage)` };
+    },
   },
   corruption: {
     id: 'corruption', name: 'Corruption', cost: 3, rarity: 'rare',
@@ -414,9 +449,16 @@ export const CARDS = {
   whirlwind: {
     id: 'whirlwind', name: 'Whirlwind', cost: -1, rarity: 'rare',
     type: 'attack', target: 'all-enemies', destination: 'exhaust',
-    text: 'Deal 5 damage to ALL enemies X times. Costs all your Energy. Exhaust.',
+    text: 'Deal 5 damage to ALL enemies X times.{live} Costs all your Energy. Exhaust.',
     effects: [{ kind: 'whirlwind', amount: 5 }],
     xCost: true,
+    liveValues: (s) => {
+      if (!s.player) return { live: '' };
+      const n = livingCount(s);
+      const energy = s.energy ?? 0;
+      if (n === 0 || energy === 0) return { live: '' };
+      return { live: ` (${5 * energy * n} total)` };
+    },
   },
 
   // ================================================================
@@ -426,14 +468,24 @@ export const CARDS = {
     id: 'last-stand', name: 'Last Stand', cost: 1, rarity: 'rare',
     type: 'attack', target: 'enemy', destination: 'exhaust',
     endsTurn: true,
-    text: 'End your turn. Deal 6 damage plus 1 per card in your hand.',
+    text: 'End your turn. Deal 6 damage plus 1 per card in your hand.{live}',
     effects: [{ kind: 'lastStand', base: 6 }],
+    liveValues: (s) => {
+      if (!s.hand) return { live: '' };
+      const n = s.hand.length;
+      return { live: ` (${6 + n} damage)` };
+    },
   },
   reaper: {
     id: 'reaper', name: 'Reaper', cost: 2, rarity: 'rare',
     type: 'attack', target: 'all-enemies', destination: 'exhaust',
-    text: 'Deal 4 damage to all enemies. Heal HP equal to unblocked damage dealt. Exhaust.',
+    text: 'Deal 4 damage to all enemies.{live} Heal HP equal to unblocked damage dealt. Exhaust.',
     effects: [{ kind: 'reaper', amount: 4 }],
+    liveValues: (s) => {
+      const n = livingCount(s);
+      if (!s.player || n <= 1) return { live: '' };
+      return { live: ` (${4 * n} total)` };
+    },
   },
   adrenaline: {
     id: 'adrenaline', name: 'Adrenaline', cost: 0, rarity: 'rare',
@@ -570,8 +622,6 @@ export function randomStartingDeck(rng, size = 8) {
   return ids;
 }
 
-// Returns the total base damage of a card, or 0 if it deals none.
-// Only counts 'damage' and 'damageRandom' effects. Skills/powers return 0.
 export function cardBaseDamage(defId) {
   const def = CARDS[defId];
   if (!def) return 0;
