@@ -50,7 +50,6 @@ export function render() {
   if (state.overlays?.discard) renderCardPileOverlay(app, 'Discard Pile', state.discardPile);
   if (state.overlays?.exhaust) renderCardPileOverlay(app, 'Exhausted', state.exhaustPile);
 
-  // Boss lore modal sits on top of everything.
   if (state.bossLore) renderBossLore(app);
 }
 
@@ -1123,11 +1122,13 @@ function endBanner() {
     btn.className = 'btn';
 
     if (state.combatKind === 'boss') {
-      if (state.run.act >= 2) {
+      // Only the final boss ends the run. Every other boss advances
+      // the act number.
+      if (state.lastEncounterId === 'final-boss') {
         btn.textContent = 'See Final Results';
         btn.addEventListener('click', () => { finishRun(); render(); });
       } else {
-        btn.textContent = 'Continue to Act 2';
+        btn.textContent = `Continue to Act ${state.run.act + 1}`;
         btn.addEventListener('click', () => { nextAct(); render(); });
       }
     } else {
