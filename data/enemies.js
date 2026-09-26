@@ -100,7 +100,7 @@ for (const bossModule of BOSSES) {
 }
 
 export const ENCOUNTERS = {
-  // Normal
+  // Normal — shared pool, scaled per act
   'act1-basic':     ['jaw-worm', 'louse'],
   'act1-cultist':   ['cultist'],
   'act1-fungi':     ['fungi-beast', 'fungi-beast'],
@@ -113,18 +113,24 @@ export const ENCOUNTERS = {
   'act1-byrd':      ['byrd', 'byrd', 'byrd'],
   'act1-centurion': ['centurion', 'louse'],
 
-  // Elites
+  // Elites — shared pool, scaled per act
   'act1-elite-1':   ['gremlin-nob'],
   'act1-elite-2':   ['lagavulin'],
   'act1-elite-3':   ['book-of-stabbing'],
   'act1-elite-4':   ['slaver', 'slaver'],
 
-  // Bosses
+  // Act 1 bosses (three candidates, one beaten per run)
   'act1-boss':      ['the-guardian'],
   'act1-boss-2':    ['hexaghost'],
   'act1-boss-3':    ['slime-boss'],
 
-  // Final Boss
+  // Act 3 boss
+  'act3-boss':      ['fallen-drawn'],
+
+  // Act 4 boss
+  'act4-boss':      ['the-warden'],
+
+  // Act 5 boss
   'final-boss':     ['dungeon-core'],
 };
 
