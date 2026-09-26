@@ -24,7 +24,7 @@ export function getBossLore(enemyId) {
 }
 
 export const state = {
-  screen: 'relicPick',
+  screen: 'mainMenu',
   rng: null,
   run: null,
   player: null,
@@ -403,7 +403,6 @@ export function endCombat(win) {
       const lastEncounter = state.lastEncounterId;
       if (lastEncounter) state.run.bossesBeaten.push(lastEncounter);
       state.run.cleared = true;
-      // Victory only fires when you beat the actual final boss.
       if (lastEncounter === 'final-boss') {
         state.run.victory = true;
       }
@@ -468,6 +467,15 @@ export function claimActReward() {
 
 export function finishRun() {
   state.screen = 'victory';
+}
+
+export function returnToMainMenu() {
+  state.screen = 'mainMenu';
+  state.run = null;
+  state.combat = null;
+  state.player = null;
+  state.enemies = [];
+  state.bossLore = null;
 }
 
 export function rollIntent(enemy) {
@@ -611,7 +619,6 @@ export function skipEnchant() {
   backToMap();
 }
 
-// Debug: jump straight into a specific boss fight.
 export function debugFightDungeonCore() {
   newCombat('final-boss', 'boss');
 }
