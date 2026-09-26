@@ -299,7 +299,7 @@ function renderMap(app) {
 
   const rowH = 64;
   const colW = 92;
-  const padX = 110;
+  const padX = 150;
   const padY = 150;
 
   const maxCol = Math.max(...map.nodes.map(n => n.col));
