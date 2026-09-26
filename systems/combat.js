@@ -1,6 +1,6 @@
 import {
   state, pushLog, startPlayerTurn, livingEnemies, rollIntent, endCombat, cardDef,
-  forEachRelic,
+  forEachRelic, showBossLore,
 } from './state.js';
 import { draw, recycleHand, shuffle, makeCard } from './deck.js';
 import {
@@ -37,7 +37,6 @@ export function costOf(card) {
     cost = Math.max(def.costReduction.min ?? 0, cost - steps);
   }
 
-  // Enchant: cost reduction.
   if (card.enchant) {
     const ench = getEnchant(card.enchant);
     if (ench?.costDelta) cost = Math.max(0, cost + ench.costDelta);
@@ -48,6 +47,7 @@ export function costOf(card) {
 
 export function canPlay(card) {
   if (state.turn !== 'player' || state.over) return false;
+  if (card.disabledThisTurn) return false;
   const def = CARDS[card.defId];
   if (def.unplayable) return false;
   return state.energy >= costOf(card);
@@ -105,7 +105,6 @@ export function playCard(card, explicitTargetId = null) {
     }
   }
 
-  // Enchant: run onPlay effects once per card play, not per hit.
   if (enchant?.onPlay) {
     for (const eff of enchant.onPlay) applyEffect(eff, targets, card, state.player);
   }
@@ -185,7 +184,23 @@ function resolveEnemyTargets(enemy, kind) {
   return [state.player];
 }
 
-// Helper: enchant damage/block modifiers on the player's card.
+function checkBossPhaseLore(enemy, beforeHp) {
+  if (!enemy.isBoss) return;
+  const max = enemy.maxHp;
+  const thresholds = enemy.phaseThresholds || { phase2: 0.66, phase3: 0.33 };
+  const pct = enemy.hp / max;
+  const beforePct = beforeHp / max;
+
+  if (!enemy.loreTriggered.phase2 && pct <= thresholds.phase2 && beforePct > thresholds.phase2) {
+    showBossLore(enemy.id, 'phase2');
+    enemy.loreTriggered.phase2 = true;
+  }
+  if (!enemy.loreTriggered.phase3 && pct <= thresholds.phase3 && beforePct > thresholds.phase3) {
+    showBossLore(enemy.id, 'phase3');
+    enemy.loreTriggered.phase3 = true;
+  }
+}
+
 function enchantDamageBonus(card, source) {
   if (source !== state.player || !card?.enchant) return 0;
   const e = getEnchant(card.enchant);
@@ -238,7 +253,9 @@ function applyEffect(eff, targets, card, source) {
         if (t === state.player) {
           damagePlayerHp(dealt);
         } else {
+          const before = t.hp;
           t.hp = Math.max(0, t.hp - dealt);
+          checkBossPhaseLore(t, before);
         }
         pushLog(`  ${t.name} took ${dealt} (blocked ${blocked}).`);
       }
@@ -457,6 +474,57 @@ function applyEffect(eff, targets, card, source) {
         exhaustCard(removed);
         pushLog(`  Exhausted ${CARDS[removed.defId].name}.`);
       }
+      break;
+    }
+
+    case 'exhaustRandomHand': {
+      const n = eff.amount ?? 1;
+      for (let i = 0; i < n; i++) {
+        if (!state.hand.length) break;
+        const idx = Math.floor(state.rng() * state.hand.length);
+        const removed = state.hand.splice(idx, 1)[0];
+        exhaustCard(removed);
+        pushLog(`  ${CARDS[removed.defId].name} was exhausted.`);
+      }
+      break;
+    }
+
+    case 'disableRandomHand': {
+      const n = eff.amount ?? 1;
+      const eligible = state.hand.filter(c => !c.disabledThisTurn);
+      const toDisable = Math.min(n, eligible.length);
+      for (let i = 0; i < toDisable; i++) {
+        const idx = Math.floor(state.rng() * eligible.length);
+        const c = eligible.splice(idx, 1)[0];
+        c.disabledThisTurn = true;
+      }
+      pushLog(`  ${toDisable} card(s) disabled this turn.`);
+      break;
+    }
+
+    case 'disableHandPercent': {
+      const pct = eff.percent ?? 0.5;
+      const eligible = state.hand.filter(c => !c.disabledThisTurn);
+      const n = Math.floor(eligible.length * pct);
+      for (let i = 0; i < n; i++) {
+        const idx = Math.floor(state.rng() * eligible.length);
+        const c = eligible.splice(idx, 1)[0];
+        c.disabledThisTurn = true;
+      }
+      pushLog(`  ${n} card(s) disabled this turn.`);
+      break;
+    }
+
+    case 'replaceHandWithCard': {
+      const n = eff.amount ?? state.hand.length;
+      const id = eff.cardId;
+      const replaced = state.hand.length;
+      state.discardPile.push(...state.hand);
+      state.hand = [];
+      for (let i = 0; i < n; i++) {
+        state.hand.push(makeCard(id));
+      }
+      pushLog(`  ${replaced} card(s) replaced with ${CARDS[id].name}.`);
       break;
     }
 
@@ -685,7 +753,9 @@ export function dealDamage(attacker, target, base, strengthMultiplier) {
   if (target === state.player) {
     damagePlayerHp(dealt);
   } else {
+    const before = target.hp;
     target.hp = Math.max(0, target.hp - dealt);
+    checkBossPhaseLore(target, before);
   }
 
   return { dealt, blocked };
