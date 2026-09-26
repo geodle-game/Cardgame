@@ -3,10 +3,7 @@
 // Combat feedback orchestration + the slash sprite reveal.
 // ============================================================
 
-import {
-  spawnImpactBurst,
-  spawnShieldBurst,
-} from './effects.js';
+import { spawnImpactBurst } from './effects.js';
 
 const rng = () => Math.random();
 
@@ -41,7 +38,7 @@ export function spawnCrescent(cx, cy, opts = {}) {
   const {
     kind = 'slash',
     dirX = 1,
-    duration = 500,
+    duration = 588,
   } = opts;
 
   const el = document.createElement('img');
@@ -196,10 +193,22 @@ export function spawnFloatText(el, text, kind = 'damage') {
   setTimeout(() => node.remove(), 950);
 }
 
+// ============================================================
+// BLOCK — PNG-based (shield.png + block.png)
+// ============================================================
+
 export function spawnBlockedIndicator(targetEl) {
   if (!targetEl) return;
   const c = center(targetEl);
-  spawnShieldBurst(c.x, c.y, { duration: 900 });
+
+  // Shield slam PNG — the "your hit was absorbed" visual
+  const shield = document.createElement('img');
+  shield.src = 'assets/shield.png';
+  shield.className = 'block-impact';
+  shield.style.left = c.x + 'px';
+  shield.style.top  = c.y + 'px';
+  document.body.appendChild(shield);
+  setTimeout(() => shield.remove(), 900);
 
   const label = document.createElement('div');
   label.className = 'float-text blocked';
@@ -212,8 +221,26 @@ export function spawnBlockedIndicator(targetEl) {
 
 export function spawnBlockEffect(playerEl) {
   if (!playerEl) return;
-  const c = center(playerEl);
-  spawnShieldBurst(c.x + 70, c.y, { duration: 1400 });
+  const r = playerEl.getBoundingClientRect();
+  const cx = r.right + 90;
+  const cy = r.top + r.height / 2;
+
+  // block.png rising + fading
+  const img = document.createElement('img');
+  img.src = 'assets/block.png';
+  img.className = 'block-effect';
+  img.style.left = cx + 'px';
+  img.style.top  = cy + 'px';
+  document.body.appendChild(img);
+  setTimeout(() => img.remove(), 1500);
+
+  // Expanding blue ring
+  const ring = document.createElement('div');
+  ring.className = 'block-ring';
+  ring.style.left = cx + 'px';
+  ring.style.top  = cy + 'px';
+  document.body.appendChild(ring);
+  setTimeout(() => ring.remove(), 1500);
 }
 
 // ============================================================
@@ -249,7 +276,7 @@ export function playHit(hit, { delay = 0 } = {}) {
       const c = center(targetEl);
 
       if (hit.dealt > 0 || hit.blocked === 0) {
-        spawnCrescent(c.x, c.y, { kind, dirX, duration: 500 });
+        spawnCrescent(c.x, c.y, { kind, dirX, duration: 588 });
         spawnImpactBurst(c.x, c.y, { kind, damage: hit.dealt });
       }
 
