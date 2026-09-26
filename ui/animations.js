@@ -1,17 +1,17 @@
 // ============================================================
 // ui/animations.js
-// Orchestrates combat feedback. Shape primitives come from
-// ./effects.js; this file handles timing, panel reactions,
-// screen shake, floating text, and hit-stop.
+// Combat feedback orchestration + the slash sprite reveal.
 // ============================================================
 
 import {
-  spawnCrescent,
   spawnImpactBurst,
   spawnShieldBurst,
 } from './effects.js';
 
 const rng = () => Math.random();
+
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const easeOutQuint = x => 1 - Math.pow(1 - x, 5);
 
 function panelForUid(uid) {
   if (!uid || uid === 'player')
@@ -26,13 +26,92 @@ function center(el) {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2, rect: r };
 }
 
-// ---------- Panel reactions ----------------------------------------------
+// ============================================================
+// SLASH SPRITE — tip-first reveal
+// ============================================================
+//
+// The sprite is hidden behind a diagonal clip-path that starts at
+// the tip and sweeps toward the root. If the reveal opens the wrong
+// end of your slash.png, flip REVEAL_FROM_RIGHT.
+
+const REVEAL_FROM_RIGHT = false;
+const SLASH_SIZE = 340;
+
+export function spawnCrescent(cx, cy, opts = {}) {
+  const {
+    kind = 'slash',
+    dirX = 1,
+    duration = 500,
+  } = opts;
+
+  const el = document.createElement('img');
+  el.className = `slash-png kind-${kind}`;
+  el.src = kind === 'heavy'
+    ? 'assets/slash-heavy.png'
+    : 'assets/slash.png';
+
+  Object.assign(el.style, {
+    position: 'fixed',
+    left: cx + 'px',
+    top:  cy + 'px',
+    width:  SLASH_SIZE + 'px',
+    height: SLASH_SIZE + 'px',
+    marginLeft: -SLASH_SIZE / 2 + 'px',
+    marginTop:  -SLASH_SIZE / 2 + 'px',
+    pointerEvents: 'none',
+    zIndex: 9000,
+    transformOrigin: 'center center',
+    transform: `scaleX(${dirX >= 0 ? 1 : -1}) rotate(-18deg)`,
+    willChange: 'clip-path, opacity',
+  });
+  document.body.appendChild(el);
+
+  const t0 = performance.now();
+
+  function frame(now) {
+    const t = (now - t0) / duration;
+    if (t >= 1) { el.remove(); return; }
+
+    let revealP, opacity;
+
+    if (t < 0.55) {
+      revealP = easeOutQuint(t / 0.55);
+      opacity = 1;
+    } else if (t < 0.70) {
+      revealP = 1;
+      opacity = 1;
+    } else {
+      revealP = 1;
+      opacity = 1 - (t - 0.70) / 0.30;
+    }
+
+    const e = revealP * 130;
+    let clip;
+    if (!REVEAL_FROM_RIGHT) {
+      clip = `polygon(0% 0%, ${e}% 0%, ${e - 35}% 100%, 0% 100%)`;
+    } else {
+      clip = `polygon(${100 - e}% 0%, 100% 0%, 100% 100%, ${100 - e + 35}% 100%)`;
+    }
+
+    el.style.clipPath = clip;
+    el.style.opacity = opacity.toFixed(3);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  return el;
+}
+
+// ============================================================
+// PANEL REACTIONS
+// ============================================================
 
 function windupAttacker(el, dirX) {
   if (!el) return;
   el.classList.remove('attacking');
   void el.offsetWidth;
-  el.style.setProperty('--windup-x',   `${dirX * 10}px`);
+  el.style.setProperty('--windup-x', `${dirX * 10}px`);
   el.style.setProperty('--windup-rot', `${dirX * 2.5}deg`);
   el.classList.add('attacking');
   setTimeout(() => el.classList.remove('attacking'), 500);
@@ -56,7 +135,9 @@ function flashPanelEl(el) {
   setTimeout(() => el.classList.remove('hit-flash'), 420);
 }
 
-// ---------- Screen effects -----------------------------------------------
+// ============================================================
+// SCREEN EFFECTS
+// ============================================================
 
 export function screenShake(intensity = 1) {
   const app = document.getElementById('app');
@@ -83,13 +164,15 @@ function hitStop(ms = 70) {
   setTimeout(() => app.classList.remove('hit-stop'), ms);
 }
 
-// ---------- Numbers & labels ---------------------------------------------
+// ============================================================
+// FLOATING TEXT
+// ============================================================
 
 export function spawnDamageNumber(el, amount, { kind = 'slash' } = {}) {
   if (!el) return;
   const r = el.getBoundingClientRect();
   const jitter = (rng() - 0.5) * 30;
-  const scale  = 1 + Math.min(1.2, amount / 25);
+  const scale = 1 + Math.min(1.2, amount / 25);
 
   const node = document.createElement('div');
   node.className = `float-text damage kind-${kind}`;
@@ -133,9 +216,11 @@ export function spawnBlockEffect(playerEl) {
   spawnShieldBurst(c.x + 70, c.y, { duration: 1400 });
 }
 
-// ---------- Hit orchestrator ---------------------------------------------
+// ============================================================
+// HIT ORCHESTRATOR
+// ============================================================
 
-const WINDUP_MS  = 130;
+const WINDUP_MS = 130;
 const STAGGER_MS = 190;
 
 function kindFor(animation) {
@@ -158,15 +243,13 @@ export function playHit(hit, { delay = 0 } = {}) {
 
     const kind = kindFor(hit.animation);
 
-    // 1) Attacker winds up.
     if (attackerEl) windupAttacker(attackerEl, dirX);
 
-    // 2) Contact — everything lands on the same beat.
     setTimeout(() => {
       const c = center(targetEl);
 
       if (hit.dealt > 0 || hit.blocked === 0) {
-        spawnCrescent(c.x, c.y, { kind, dirX, duration: 470 });
+        spawnCrescent(c.x, c.y, { kind, dirX, duration: 500 });
         spawnImpactBurst(c.x, c.y, { kind, damage: hit.dealt });
       }
 
@@ -174,10 +257,8 @@ export function playHit(hit, { delay = 0 } = {}) {
         spawnBlockedIndicator(targetEl);
       }
 
-      // 3) Hit-stop — the single biggest "juice" lever.
       if (hit.dealt > 0) hitStop(hit.dealt >= 15 ? 90 : 60);
 
-      // 4) Target + screen feedback.
       if (hit.dealt > 0) {
         spawnDamageNumber(targetEl, hit.dealt, { kind });
         knockbackTarget(targetEl, dirX, hit.dealt);
@@ -206,7 +287,9 @@ export function animateHits(hits) {
   hits.forEach((hit, i) => playHit(hit, { delay: i * stagger }));
 }
 
-// ---------- Legacy compat (do not remove until call sites migrate) -------
+// ============================================================
+// LEGACY COMPAT
+// ============================================================
 
 export function shakePanel(uid) {
   const el = panelForUid(uid);
