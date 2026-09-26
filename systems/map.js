@@ -5,20 +5,24 @@ export function generateMap(rng) {
   const nodes = [];
   const id = (f, c) => `n_${f}_${c}`;
 
-  // 1. Place nodes per floor.
+  // 1. Place nodes per floor, then roll types with variety caps.
   for (let f = 0; f < FLOORS; f++) {
     const weights = layout.floorWeights[f] || { monster: 1 };
     const count = f === FLOORS - 1 ? 1 : (2 + Math.floor(rng() * (WIDTH - 3)));
-    // Pick columns spaced out across the width
     const cols = pickColumns(rng, count, WIDTH);
-    for (const c of cols) {
-      const type = weightedPick(rng, weights);
+
+    // Roll types first, then enforce variety.
+    const types = cols.map(() => weightedPick(rng, weights));
+    enforceFloorVariety(types, weights, f, rng);
+
+    for (let i = 0; i < cols.length; i++) {
+      const c = cols[i];
       nodes.push({
         id: id(f, c),
         floor: f,
         col: c,
-        type,
-        x: 0, y: 0,       // filled in at render time
+        type: types[i],
+        x: 0, y: 0,
         next: [],
       });
     }
@@ -37,7 +41,6 @@ export function generateMap(rng) {
     if (!cur || !nxt) continue;
 
     for (const n of cur) {
-      // Prefer the next-floor nodes closest in column, pick 1 or 2
       const sorted = nxt.slice().sort((a, b) =>
         Math.abs(a.col - n.col) - Math.abs(b.col - n.col));
       const k = 1 + (rng() < 0.4 ? 1 : 0);
@@ -47,7 +50,6 @@ export function generateMap(rng) {
       }
     }
 
-    // Guarantee every next-floor node has at least one parent
     for (const t of nxt) {
       const hasParent = cur.some(n => n.next.includes(t.id));
       if (!hasParent) {
@@ -58,10 +60,9 @@ export function generateMap(rng) {
     }
   }
 
-  // 3. Boss floor: single node, all last-floor nodes connect to it.
-  const bossFloor = FLOORS; // 1 past the last regular floor
+  const bossFloor = FLOORS;
   const boss = {
-    id: `boss`,
+    id: 'boss',
     floor: bossFloor,
     col: Math.floor(WIDTH / 2),
     type: 'boss',
@@ -80,9 +81,59 @@ export function generateMap(rng) {
   };
 }
 
+// Rewrites types in place so that:
+//   - no floor has more than 2 of any non-monster type
+//   - floors 2-13 have at least 1 monster (if monster is a valid weight)
+//   - floor 14 is all rest (its weights only have rest)
+function enforceFloorVariety(types, weights, floor, rng) {
+  const allowMonster = (weights.monster ?? 0) > 0;
+
+  // Count current types.
+  const counts = {};
+  for (const t of types) counts[t] = (counts[t] || 0) + 1;
+
+  // 1. Break up non-monster clusters of 3+.
+  for (let i = 0; i < types.length; i++) {
+    const t = types[i];
+    if (t === 'monster') continue;
+    if ((counts[t] || 0) > 2) {
+      // Try to swap to another allowed type that's under the cap.
+      const candidates = Object.keys(weights).filter(k => {
+        if (k === t) return false;
+        if ((counts[k] || 0) >= 2) return false;
+        return true;
+      });
+      if (candidates.length) {
+        const pick = candidates[Math.floor(rng() * candidates.length)];
+        counts[t]--;
+        counts[pick] = (counts[pick] || 0) + 1;
+        types[i] = pick;
+      }
+    }
+  }
+
+  // 2. Force at least 1 monster on floors 2-13.
+  if (allowMonster && floor >= 2 && floor <= 13) {
+    if (!types.includes('monster')) {
+      // Replace one of the most-common non-monster types with monster.
+      const counts2 = {};
+      for (const t of types) counts2[t] = (counts2[t] || 0) + 1;
+      let replaceAt = -1;
+      let bestCount = -1;
+      for (let i = 0; i < types.length; i++) {
+        if (types[i] === 'monster') continue;
+        if (counts2[types[i]] > bestCount) {
+          bestCount = counts2[types[i]];
+          replaceAt = i;
+        }
+      }
+      if (replaceAt >= 0) types[replaceAt] = 'monster';
+    }
+  }
+}
+
 function pickColumns(rng, count, width) {
   const cols = [];
-  // Reserve slots across the width, then jitter
   const step = width / count;
   for (let i = 0; i < count; i++) {
     const base = Math.floor(i * step + step / 2);
