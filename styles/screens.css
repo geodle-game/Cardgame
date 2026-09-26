@@ -23,20 +23,8 @@
   pointer-events: none;
   z-index: 0;
   opacity: .55;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 12%,
-    black 88%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 12%,
-    black 88%,
-    transparent 100%
-  );
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%);
 }
 
 .top {
@@ -169,9 +157,7 @@
   transition: opacity .2s ease;
 }
 
-.block-empty {
-  opacity: .35;
-}
+.block-empty { opacity: .35; }
 
 .block-icon {
   display: inline-block;
@@ -434,9 +420,7 @@
   to   { opacity: 1; }
 }
 
-.death-text p {
-  margin: 0;
-}
+.death-text p { margin: 0; }
 
 .death-text .death-emphasis {
   color: #ffd166;
@@ -461,8 +445,115 @@
   50%      { text-shadow: 0 0 28px rgba(255,209,102,.95); }
 }
 
-.death-btn {
+.death-btn { margin-top: 8px; }
+
+/* ============================================================
+   MAIN MENU / SPLASH SCREEN
+   ============================================================ */
+
+.main-menu {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 60px 24px;
+  background:
+    radial-gradient(ellipse at top, #1e1a2e 0%, #14161a 55%),
+    radial-gradient(ellipse at bottom, #2a1a24 0%, transparent 60%);
+  overflow-y: auto;
+}
+
+.main-menu-inner {
+  max-width: 720px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.main-menu-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  color: #ffd166;
+  text-shadow:
+    0 0 30px rgba(255,209,102,.5),
+    0 0 60px rgba(255,209,102,.25),
+    0 4px 12px rgba(0,0,0,.9);
+  text-align: center;
+  line-height: 1.05;
+}
+
+.main-menu-tagline {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 16px;
+  color: #c9a3ff;
+  text-align: center;
+  letter-spacing: .02em;
+  max-width: 560px;
+  line-height: 1.5;
+}
+
+.main-menu-divider {
+  width: 180px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #8f6bff, #ffd166, #8f6bff, transparent);
+  margin: 8px 0;
+  border-radius: 1px;
+  box-shadow: 0 0 12px rgba(255,209,102,.6);
+}
+
+.main-menu-lore {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #c8cdd7;
+  margin: 12px 0 20px;
+}
+
+.main-menu-lore p { margin: 0; }
+.main-menu-lore em { color: #c9a3ff; font-style: italic; }
+.main-menu-lore strong { color: #ffd166; font-weight: 700; letter-spacing: .06em; }
+
+.main-menu-lore .main-menu-lore-emphasis {
+  color: #ffd166;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-align: center;
+  font-size: 14px;
+  margin-top: 6px;
+  text-shadow: 0 0 16px rgba(255,209,102,.6);
+  animation: mainMenuPulse 2.6s ease-in-out infinite;
+}
+
+@keyframes mainMenuPulse {
+  0%, 100% { text-shadow: 0 0 12px rgba(255,209,102,.4); }
+  50%      { text-shadow: 0 0 26px rgba(255,209,102,.9); }
+}
+
+.main-menu-btn {
+  padding: 14px 48px;
+  font-size: 16px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
   margin-top: 8px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 600px) {
+  .main-menu-title { font-size: 40px; letter-spacing: .08em; }
+  .main-menu-tagline { font-size: 14px; }
+  .main-menu-lore { font-size: 14px; line-height: 1.65; }
+  .main-menu { padding: 40px 20px; }
 }
 
 /* ============================================================
@@ -653,9 +744,7 @@
    ============================================================ */
 
 .relic-card.rarity-common,
-.relic-row-item.rarity-common {
-  border-color: #8a93a6;
-}
+.relic-row-item.rarity-common { border-color: #8a93a6; }
 
 .relic-card.rarity-uncommon,
 .relic-row-item.rarity-uncommon {
@@ -759,10 +848,7 @@
     0 0 0 3px rgba(20,22,26,.5);
 }
 
-.map-node-locked {
-  opacity: .65;
-  cursor: default;
-}
+.map-node-locked { opacity: .65; cursor: default; }
 
 .map-node-reachable {
   border-color: #8f6bff;
@@ -850,7 +936,6 @@
 .shop-unaffordable { opacity: .5; }
 .shop-card { cursor: default; }
 .shop-card:hover { transform: none; }
-
 .shop-heal { margin-top: 8px; }
 
 .victory-stats {
@@ -883,10 +968,7 @@
   padding: 32px;
 }
 
-.shop-screen > * {
-  position: relative;
-  z-index: 1;
-}
+.shop-screen > * { position: relative; z-index: 1; }
 
 .shop-screen h1 {
   text-shadow: 0 2px 12px rgba(0,0,0,.9), 0 0 20px rgba(143,107,255,.5);
@@ -897,9 +979,7 @@
   backdrop-filter: blur(4px);
 }
 
-.shop-screen .gold {
-  text-shadow: 0 2px 8px rgba(0,0,0,.9);
-}
+.shop-screen .gold { text-shadow: 0 2px 8px rgba(0,0,0,.9); }
 
 /* ============================================================
    GOLD COIN STACK
