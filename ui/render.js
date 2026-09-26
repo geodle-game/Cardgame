@@ -2,7 +2,7 @@ import {
   state, chooseRelic, confirmDeck, newRun, startNode, backToMap,
   claimReward, takeRewardCard, skipRewardCard,
   pickEventChoice, buyShopCard, buyShopHeal,
-  restHeal, restUpgrade, newCombat,
+  restHeal, restEnchantStart, applyEnchant, skipEnchant, newCombat,
   toggleDeckOverlay, toggleRelicOverlay,
   toggleDrawOverlay, toggleDiscardOverlay, toggleExhaustOverlay,
   closeOverlays,
@@ -11,13 +11,14 @@ import {
   pickTreasureRelic, skipTreasure,
 } from '../systems/state.js';
 import {
-  canPlay, playCard, selectCardForPlay, beginEnemyTurn, resolveEnemyTurn,
+  canPlay, playCard, selectCardForPlay, beginEnemyTurn, resolveEnemyTurn, costOf,
 } from '../systems/combat.js';
 import { CARDS } from '../data/cards.js';
 import { RELICS } from '../data/relics.js';
 import { ENEMY_CARDS } from '../data/enemy-cards.js';
 import { NODE_TYPES } from '../data/maps.js';
 import { getNode, reachableFrom, startingNodes } from '../systems/map.js';
+import { getEnchant } from '../data/enchants.js';
 
 const LONG_PRESS_MS = 450;
 const DRAG_THRESHOLD = 14;
@@ -28,18 +29,19 @@ export function render() {
   app.innerHTML = '';
 
   switch (state.screen) {
-    case 'relicPick':  renderRelicPick(app);  break;
-    case 'deckView':   renderDeckView(app);   break;
-    case 'map':        renderMap(app);        break;
-    case 'combat':     renderCombat(app);     break;
-    case 'reward':     renderReward(app);     break;
-    case 'actReward':  renderActReward(app);  break;
-    case 'treasure':   renderTreasure(app);   break;
-    case 'event':      renderEvent(app);      break;
-    case 'shop':       renderShop(app);       break;
-    case 'rest':       renderRest(app);       break;
-    case 'victory':    renderVictory(app);    break;
-    default:           renderGameOver(app);
+    case 'relicPick':   renderRelicPick(app);   break;
+    case 'deckView':    renderDeckView(app);    break;
+    case 'map':         renderMap(app);         break;
+    case 'combat':      renderCombat(app);      break;
+    case 'reward':      renderReward(app);      break;
+    case 'actReward':   renderActReward(app);   break;
+    case 'treasure':    renderTreasure(app);    break;
+    case 'event':       renderEvent(app);       break;
+    case 'shop':        renderShop(app);        break;
+    case 'rest':        renderRest(app);        break;
+    case 'enchantPick': renderEnchantPick(app); break;
+    case 'victory':     renderVictory(app);     break;
+    default:            renderGameOver(app);
   }
 
   if (state.overlays?.deck)    renderDeckOverlay(app);
@@ -104,7 +106,7 @@ function topButtons() {
   const deckBtn = document.createElement('button');
   deckBtn.className = 'icon-btn';
   deckBtn.title = 'View deck';
-  deckBtn.textContent = `Deck ${state.run.deckIds.length}`;
+  deckBtn.textContent = `Deck ${state.run.deck.length}`;
   deckBtn.addEventListener('click', () => { toggleDeckOverlay(); render(); });
   wrap.appendChild(deckBtn);
 
@@ -123,24 +125,24 @@ function topButtons() {
 // ---------------- Overlays ----------------
 
 function renderDeckOverlay(app) {
-  const overlay = cardGridOverlay('Your Deck', sortDeckIds(state.run.deckIds));
+  const overlay = cardGridOverlay('Your Deck', sortDeckEntries(state.run.deck));
   app.appendChild(overlay);
 }
 
 function renderCardPileOverlay(app, title, pile) {
-  const ids = pile.map(c => c.defId);
-  const overlay = cardGridOverlay(title, ids, { emptyMessage: 'Nothing here yet.' });
+  const entries = pile.map(c => ({ defId: c.defId, enchant: c.enchant }));
+  const overlay = cardGridOverlay(title, entries, { emptyMessage: 'Nothing here yet.' });
   app.appendChild(overlay);
 }
 
-function sortDeckIds(ids) {
-  return ids.slice().sort((a, b) => {
-    const A = CARDS[a], B = CARDS[b];
+function sortDeckEntries(entries) {
+  return entries.slice().sort((a, b) => {
+    const A = CARDS[a.defId], B = CARDS[b.defId];
     return (A.type || '').localeCompare(B.type || '') || A.name.localeCompare(B.name);
   });
 }
 
-function cardGridOverlay(title, defIds, { emptyMessage } = {}) {
+function cardGridOverlay(title, entries, { emptyMessage } = {}) {
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
   overlay.addEventListener('click', (e) => {
@@ -151,7 +153,7 @@ function cardGridOverlay(title, defIds, { emptyMessage } = {}) {
   panel.className = 'overlay-panel';
   panel.appendChild(overlayHeader(title, closeOverlays));
 
-  if (!defIds.length && emptyMessage) {
+  if (!entries.length && emptyMessage) {
     const empty = document.createElement('p');
     empty.className = 'muted';
     empty.textContent = emptyMessage;
@@ -159,7 +161,11 @@ function cardGridOverlay(title, defIds, { emptyMessage } = {}) {
   } else {
     const grid = document.createElement('div');
     grid.className = 'deck-grid';
-    for (const id of defIds) grid.appendChild(cardFace(id, { small: true, disabled: true }));
+    for (const entry of entries) {
+      grid.appendChild(cardFace(entry.defId, {
+        small: true, disabled: true, enchant: entry.enchant,
+      }));
+    }
     panel.appendChild(grid);
   }
 
@@ -255,8 +261,8 @@ function renderDeckView(app) {
 
   const grid = document.createElement('div');
   grid.className = 'deck-grid';
-  state.run.deckIds.forEach((id, i) => {
-    const el = cardFace(id, { disabled: true, small: true });
+  state.run.deck.forEach((entry, i) => {
+    const el = cardFace(entry.defId, { disabled: true, small: true, enchant: entry.enchant });
     el.style.animationDelay = `${i * 30}ms`;
     grid.appendChild(el);
   });
@@ -534,7 +540,7 @@ function renderVictory(app) {
     <div>Acts cleared: <strong>${state.run.act}</strong></div>
     <div>Final HP: <strong class="hp">${state.run.hp} / ${state.run.maxHp}</strong></div>
     <div>Gold: <strong>${goldDisplay(state.run.gold)}</strong></div>
-    <div>Deck size: <strong>${state.run.deckIds.length}</strong></div>
+    <div>Deck size: <strong>${state.run.deck.length}</strong></div>
     <div>Relics: <strong style="color:#c9a3ff">${state.run.relics.length}</strong></div>
   `;
   wrap.appendChild(stats);
@@ -649,11 +655,67 @@ function renderRest(app) {
   healBtn.addEventListener('click', () => { restHeal(); render(); });
   wrap.appendChild(healBtn);
 
-  const medBtn = document.createElement('button');
-  medBtn.className = 'btn';
-  medBtn.textContent = 'Meditate — heal 10%';
-  medBtn.addEventListener('click', () => { restUpgrade(); render(); });
-  wrap.appendChild(medBtn);
+  const enchantBtn = document.createElement('button');
+  enchantBtn.className = 'btn';
+  enchantBtn.textContent = 'Enchant a card';
+  enchantBtn.addEventListener('click', () => { restEnchantStart(); render(); });
+  wrap.appendChild(enchantBtn);
+
+  app.appendChild(wrap);
+}
+
+// ---------------- Enchant pick ----------------
+
+function renderEnchantPick(app) {
+  const pe = state.pendingEnchant;
+  if (!pe) { renderMap(app); return; }
+  const enchant = getEnchant(pe.enchantId);
+  if (!enchant) { backToMap(); render(); return; }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'screen screen-center';
+
+  const h = document.createElement('h1');
+  h.textContent = 'Enchant a Card';
+  wrap.appendChild(h);
+
+  const info = document.createElement('div');
+  info.className = `enchant-info rarity-${enchant.rarity}`;
+  info.innerHTML = `
+    <div class="enchant-rarity-badge">${enchant.rarity}</div>
+    <div class="enchant-name">${enchant.name}</div>
+    <div class="enchant-text">${enchant.text}</div>
+  `;
+  wrap.appendChild(info);
+
+  const sub = document.createElement('p');
+  sub.className = 'muted';
+  sub.textContent = 'Choose a card to enchant:';
+  wrap.appendChild(sub);
+
+  const grid = document.createElement('div');
+  grid.className = 'deck-grid';
+  state.run.deck.forEach((entry, i) => {
+    const eligible = pe.eligibleIndices.includes(i);
+    const el = cardFace(entry.defId, {
+      small: true,
+      enchant: entry.enchant,
+      disabled: !eligible,
+    });
+    if (eligible) {
+      el.classList.add('enchant-target');
+      el.addEventListener('click', () => { applyEnchant(i); render(); });
+    }
+    grid.appendChild(el);
+  });
+  wrap.appendChild(grid);
+
+  const skip = document.createElement('button');
+  skip.className = 'btn';
+  skip.textContent = 'Skip Enchant';
+  skip.addEventListener('click', () => { skipEnchant(); render(); });
+  wrap.appendChild(skip);
+
   app.appendChild(wrap);
 }
 
@@ -836,7 +898,7 @@ function showPreviewOverlay(card) {
 
   const wrapper = document.createElement('div');
   wrapper.className = 'card-preview-wrapper';
-  wrapper.appendChild(cardFace(card.defId, { big: true }));
+  wrapper.appendChild(cardFace(card.defId, { big: true, enchant: card.enchant }));
 
   const hint = document.createElement('div');
   hint.className = 'card-preview-hint';
@@ -849,7 +911,7 @@ function showPreviewOverlay(card) {
 
 function cardInHand(card) {
   const def = CARDS[card.defId];
-  const el = cardFace(card.defId);
+  const el = cardFace(card.defId, { enchant: card.enchant });
   if (!canPlay(card)) el.classList.add('disabled');
   if (state.pendingCardUid === card.uid) el.classList.add('pending');
 
@@ -938,7 +1000,7 @@ function doPlayCard(card, sourceEl, targetUid) {
       const p = document.querySelector('[data-panel="player"]');
       if (p) {
         spawnFloatOn(p, '+BLOCK', 'block');
-        spawnBlockEffect(p);
+        setTimeout(() => spawnBlockEffect(p), 60);
       }
     }
 
@@ -967,13 +1029,16 @@ function doPlayCard(card, sourceEl, targetUid) {
   }, 220);
 }
 
-function cardFace(defId, { disabled = false, small = false, big = false } = {}) {
+function cardFace(defId, { disabled = false, small = false, big = false, enchant = null } = {}) {
   const def = CARDS[defId];
+  const enchantDef = enchant ? getEnchant(enchant) : null;
+
   const el = document.createElement('div');
   el.className = 'card';
   if (disabled) el.classList.add('disabled');
   if (small) el.classList.add('card-small');
   if (big) el.classList.add('card-big');
+  if (enchantDef) el.classList.add('has-enchant');
   el.classList.add(`rarity-${def.rarity || 'common'}`);
   el.classList.add(`type-${def.type || 'skill'}`);
   if (def.retain) el.classList.add('card-retain');
@@ -985,6 +1050,12 @@ function cardFace(defId, { disabled = false, small = false, big = false } = {}) 
     <div class="cost">${def.unplayable ? '–' : def.cost}</div>
     <div class="cname">${def.name}</div>
     <div class="ctext">${text}</div>
+    ${enchantDef ? `
+      <div class="card-enchant rarity-${enchantDef.rarity}">
+        <span class="card-enchant-name">${enchantDef.name}</span>
+        <span class="card-enchant-text">${enchantDef.text}</span>
+      </div>
+    ` : ''}
   `;
   return el;
 }
@@ -1129,36 +1200,23 @@ export function spawnSpark(x, y) {
   setTimeout(() => el.remove(), 450);
 }
 
-// -----------------------------------------------------------------
-// Slash: crescent image flies through the target with rotation,
-// scale squash/stretch, two motion-blur ghosts behind it, and a
-// bright radial flash at the peak of the swing.
-// -----------------------------------------------------------------
 export function spawnSlash(targetEl, kind = 'slash') {
   const r = targetEl.getBoundingClientRect();
   const cx = r.left + r.width / 2;
   const cy = r.top + r.height / 2;
 
-  // Base orientation of the crescent. Art is drawn roughly at -45°.
-  // Vary ±30° so no two swings look the same.
   const baseAngle = -45 + (Math.random() - 0.5) * 60;
-
-  // Sweep direction is perpendicular to the blade axis. Randomly
-  // flipped so some swings cut top-left→bottom-right, others the reverse.
   const flip = Math.random() < 0.5 ? 1 : -1;
   const sweepAngle = (baseAngle + 90) * flip;
-
   const rad = (sweepAngle * Math.PI) / 180;
   const dist = 180;
   const dx = Math.cos(rad) * dist;
   const dy = Math.sin(rad) * dist;
 
-  // Main crescent + two ghosts.
   spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 0, false);
   spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 45, true);
   spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 90, true);
 
-  // Impact flash at the peak of the main swipe.
   setTimeout(() => spawnSlashFlash(cx, cy), 130);
 }
 
@@ -1225,13 +1283,23 @@ export function spawnDamageNumber(targetEl, amount) {
 
 export function spawnBlockEffect(playerEl) {
   const r = playerEl.getBoundingClientRect();
+  const cx = r.right + 90;
+  const cy = r.top + r.height / 2;
+
   const img = document.createElement('img');
   img.src = 'assets/block.png';
   img.className = 'block-effect';
-  img.style.left = (r.right + 30) + 'px';
-  img.style.top  = (r.top + r.height / 2) + 'px';
+  img.style.left = cx + 'px';
+  img.style.top  = cy + 'px';
   document.body.appendChild(img);
-  setTimeout(() => img.remove(), 950);
+  setTimeout(() => img.remove(), 1500);
+
+  const ring = document.createElement('div');
+  ring.className = 'block-ring';
+  ring.style.left = cx + 'px';
+  ring.style.top  = cy + 'px';
+  document.body.appendChild(ring);
+  setTimeout(() => ring.remove(), 1500);
 }
 
 export function shakePanel(uid) {
