@@ -5,7 +5,7 @@ import {
   restHeal, restEnchantStart, applyEnchant, skipEnchant, newCombat,
   toggleDeckOverlay, toggleRelicOverlay,
   toggleDrawOverlay, toggleDiscardOverlay, toggleExhaustOverlay,
-  closeOverlays,
+  closeOverlays, dismissBossLore,
   nextAct, claimActReward, takeActRewardCard, skipActRewardCard,
   takeActRewardRelic, finishRun,
   pickTreasureRelic, skipTreasure,
@@ -49,6 +49,39 @@ export function render() {
   if (state.overlays?.draw)    renderCardPileOverlay(app, 'Draw Pile', state.drawPile);
   if (state.overlays?.discard) renderCardPileOverlay(app, 'Discard Pile', state.discardPile);
   if (state.overlays?.exhaust) renderCardPileOverlay(app, 'Exhausted', state.exhaustPile);
+
+  // Boss lore modal sits on top of everything.
+  if (state.bossLore) renderBossLore(app);
+}
+
+// ---------------- Boss lore modal ----------------
+
+function renderBossLore(app) {
+  const overlay = document.createElement('div');
+  overlay.className = 'boss-lore-overlay';
+
+  const panel = document.createElement('div');
+  panel.className = 'boss-lore-panel';
+  panel.classList.add(`lore-${state.bossLore.trigger}`);
+
+  for (const line of state.bossLore.lines) {
+    const p = document.createElement('p');
+    p.className = 'boss-lore-line';
+    p.textContent = line;
+    panel.appendChild(p);
+  }
+
+  const btn = document.createElement('button');
+  btn.className = 'btn boss-lore-continue';
+  btn.textContent = 'Continue';
+  btn.addEventListener('click', () => {
+    dismissBossLore();
+    render();
+  });
+  panel.appendChild(btn);
+
+  overlay.appendChild(panel);
+  app.appendChild(overlay);
 }
 
 // ---------------- Card text resolution ----------------
@@ -82,8 +115,6 @@ function enemyCardContext(enemy) {
   return { attacker: enemy, target: state.player };
 }
 
-// ---------------- Gold coin stack helper ----------------
-
 function coinStackClass(gold) {
   if (gold >= 250) return 'coin-5';
   if (gold >= 100) return 'coin-4';
@@ -96,8 +127,6 @@ function goldDisplay(gold) {
   const cls = coinStackClass(gold);
   return `<span class="gold-display"><span class="gold-coin ${cls}"></span><span class="gold">${gold}</span></span>`;
 }
-
-// ---------------- Top-right buttons ----------------
 
 function topButtons() {
   const wrap = document.createElement('div');
@@ -121,8 +150,6 @@ function topButtons() {
 
   return wrap;
 }
-
-// ---------------- Overlays ----------------
 
 function renderDeckOverlay(app) {
   const overlay = cardGridOverlay('Your Deck', sortDeckEntries(state.run.deck));
@@ -216,8 +243,6 @@ function overlayHeader(title, onClose) {
   return head;
 }
 
-// ---------------- Relic pick / deck view ----------------
-
 function relicCard(r, onClick) {
   const el = document.createElement('button');
   el.className = `relic-card rarity-${r.rarity || 'common'}`;
@@ -276,8 +301,6 @@ function renderDeckView(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Map ----------------
-
 function renderMap(app) {
   const map = state.run.map;
   const wrap = document.createElement('div');
@@ -301,9 +324,6 @@ function renderMap(app) {
   const colW = 92;
   const padX = 110;
   const padY = 150;
-
-  // Fixed at WIDTH - 1 so every map has identical dimensions and
-  // symmetric padding, no matter which columns spawned that run.
   const maxCol = 6;
   const width = padX * 2 + (maxCol + 1) * colW;
   const height = padY * 2 + (map.floors + 1) * rowH;
@@ -370,8 +390,6 @@ function renderMap(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Reward ----------------
-
 function renderReward(app) {
   const r = state.reward;
   const wrap = document.createElement('div');
@@ -414,8 +432,6 @@ function renderReward(app) {
   wrap.appendChild(btn);
   app.appendChild(wrap);
 }
-
-// ---------------- Act transition ----------------
 
 function renderActReward(app) {
   const r = state.actReward;
@@ -488,8 +504,6 @@ function renderActReward(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Treasure ----------------
-
 function renderTreasure(app) {
   const t = state.treasure;
   const wrap = document.createElement('div');
@@ -525,8 +539,6 @@ function renderTreasure(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Victory ----------------
-
 function renderVictory(app) {
   const wrap = document.createElement('div');
   wrap.className = 'screen screen-center';
@@ -556,8 +568,6 @@ function renderVictory(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Event ----------------
-
 function renderEvent(app) {
   const ev = state.event.data;
   const wrap = document.createElement('div');
@@ -584,8 +594,6 @@ function renderEvent(app) {
   wrap.appendChild(choices);
   app.appendChild(wrap);
 }
-
-// ---------------- Shop ----------------
 
 function renderShop(app) {
   const s = state.shop;
@@ -642,8 +650,6 @@ function renderShop(app) {
   app.appendChild(wrap);
 }
 
-// ---------------- Rest ----------------
-
 function renderRest(app) {
   const wrap = document.createElement('div');
   wrap.className = 'screen screen-center';
@@ -665,8 +671,6 @@ function renderRest(app) {
 
   app.appendChild(wrap);
 }
-
-// ---------------- Enchant pick ----------------
 
 function renderEnchantPick(app) {
   const pe = state.pendingEnchant;
@@ -720,8 +724,6 @@ function renderEnchantPick(app) {
 
   app.appendChild(wrap);
 }
-
-// ---------------- Combat ----------------
 
 function renderCombat(app) {
   const c = document.createElement('div');
@@ -817,6 +819,7 @@ function enemyPanel(e) {
 
   const el = document.createElement('div');
   el.className = 'panel enemy' + (dead ? ' enemy-dead' : '');
+  if (e.isBoss) el.classList.add('enemy-boss');
   el.dataset.panel = 'enemy';
   el.dataset.uid = e.uid;
 
@@ -915,6 +918,7 @@ function cardInHand(card) {
   const def = CARDS[card.defId];
   const el = cardFace(card.defId, { enchant: card.enchant });
   if (!canPlay(card)) el.classList.add('disabled');
+  if (card.disabledThisTurn) el.classList.add('card-locked');
   if (state.pendingCardUid === card.uid) el.classList.add('pending');
 
   if (state.newlyDrawn?.has(card.uid)) {
@@ -1137,14 +1141,25 @@ function endBanner() {
     text.innerHTML = `
       <p>The dungeon reaches for you. Cold. Patient. Certain.</p>
 
-      <p>If it takes you, there is no one else. The Drawn are hunted
-      the moment they are found. There is no second hero waiting in
-      the wings. There is no army coming to finish what you could not.</p>
+      <p>You feel it take the cards first. Then the memories of the people
+      who taught you to hold them. Then your name.</p>
+
+      <p>And then — the room goes quiet, and you understand.</p>
+
+      <p class="death-emphasis">You are becoming part of it.</p>
+
+      <p>One more voice inside the dark. One more Drawn who walked in and
+      did not walk out. You can feel the others. Hundreds of them. Thousands.
+      Every hero who ever made it this far and then stopped.</p>
+
+      <p>If it takes you, there is no one else. The Drawn are hunted the
+      moment they are found. There is no second hero waiting in the wings.
+      There is no army coming to finish what you could not.</p>
 
       <p class="death-emphasis">If the dungeon consumes you,
       the world ends with you.</p>
 
-      <p>But you remember them.</p>
+      <p>But — you remember them.</p>
 
       <p>The people who taught you how to hold a card. The village that
       sent you off with nothing but hope. Everyone still breathing above
@@ -1156,9 +1171,9 @@ function endBanner() {
       your family gave you before you left. A small thing. Worn smooth by
       other hands long before yours.</p>
 
-      <p>You vow, one more time, that the dungeon will end.</p>
+      <p>It is warm. It has always been warm.</p>
 
-      <p>The amulet answers.</p>
+      <p>You pull.</p>
 
       <p class="death-emphasis">A burst of light.</p>
 
@@ -1183,8 +1198,6 @@ function renderGameOver(app) {
   el.textContent = 'Game over.';
   app.appendChild(el);
 }
-
-// ---------------- Animation helpers ----------------
 
 function getPanelElement(uid) {
   if (!uid || uid === 'player') {
