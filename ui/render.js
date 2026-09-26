@@ -299,10 +299,12 @@ function renderMap(app) {
 
   const rowH = 64;
   const colW = 92;
-  const padX = 162;
+  const padX = 110;
   const padY = 150;
 
-  const maxCol = Math.max(...map.nodes.map(n => n.col));
+  // Fixed at WIDTH - 1 so every map has identical dimensions and
+  // symmetric padding, no matter which columns spawned that run.
+  const maxCol = 6;
   const width = padX * 2 + (maxCol + 1) * colW;
   const height = padY * 2 + (map.floors + 1) * rowH;
   board.style.width = width + 'px';
@@ -1130,7 +1132,6 @@ function endBanner() {
     }
     card.appendChild(btn);
   } else {
-    // Loss → the resurrection narrative.
     const text = document.createElement('div');
     text.className = 'death-text';
     text.innerHTML = `
