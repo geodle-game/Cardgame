@@ -299,8 +299,8 @@ function renderMap(app) {
 
   const rowH = 64;
   const colW = 92;
-  const padX = 40;
-  const padY = 30;
+  const padX = 110;
+  const padY = 150;
 
   const maxCol = Math.max(...map.nodes.map(n => n.col));
   const width = padX * 2 + (maxCol + 1) * colW;
