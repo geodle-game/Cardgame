@@ -1107,15 +1107,15 @@ function endBanner() {
   const card = document.createElement('div');
   card.className = 'victory-card';
 
-  const title = document.createElement('h1');
-  title.className = 'victory-title ' + (state.result === 'win' ? 'win' : 'loss');
-  title.textContent = state.result === 'win' ? 'Victory' : 'Defeat';
-  card.appendChild(title);
-
-  const btn = document.createElement('button');
-  btn.className = 'btn';
-
   if (state.result === 'win') {
+    const title = document.createElement('h1');
+    title.className = 'victory-title win';
+    title.textContent = 'Victory';
+    card.appendChild(title);
+
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+
     if (state.combatKind === 'boss') {
       if (state.run.act >= 2) {
         btn.textContent = 'See Final Results';
@@ -1128,12 +1128,50 @@ function endBanner() {
       btn.textContent = 'Rewards';
       btn.addEventListener('click', () => { state.screen = 'reward'; render(); });
     }
+    card.appendChild(btn);
   } else {
-    btn.textContent = 'New Run';
+    // Loss → the resurrection narrative.
+    const text = document.createElement('div');
+    text.className = 'death-text';
+    text.innerHTML = `
+      <p>The dungeon reaches for you. Cold. Patient. Certain.</p>
+
+      <p>If it takes you, there is no one else. The Drawn are hunted
+      the moment they are found. There is no second hero waiting in
+      the wings. There is no army coming to finish what you could not.</p>
+
+      <p class="death-emphasis">If the dungeon consumes you,
+      the world ends with you.</p>
+
+      <p>But you remember them.</p>
+
+      <p>The people who taught you how to hold a card. The village that
+      sent you off with nothing but hope. Everyone still breathing above
+      you who will not survive the week if you fall here.</p>
+
+      <p class="death-emphasis">You are filled with determination.</p>
+
+      <p>Your hand closes around the amulet at your chest — the last gift
+      your family gave you before you left. A small thing. Worn smooth by
+      other hands long before yours.</p>
+
+      <p>You vow, one more time, that the dungeon will end.</p>
+
+      <p>The amulet answers.</p>
+
+      <p class="death-emphasis">A burst of light.</p>
+
+      <p class="death-last">You are back at the beginning.</p>
+    `;
+    card.appendChild(text);
+
+    const btn = document.createElement('button');
+    btn.className = 'btn death-btn';
+    btn.textContent = 'New Run?';
     btn.addEventListener('click', () => { newRun(); render(); });
+    card.appendChild(btn);
   }
 
-  card.appendChild(btn);
   overlay.appendChild(card);
   return overlay;
 }
