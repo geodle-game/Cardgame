@@ -532,68 +532,70 @@
   pointer-events: none;
 }
 
-/* Nodes get an ink-stamp look so they read against the parchment. */
+/* Solid boardgame-piece nodes. High contrast so they read on parchment. */
 .map-node {
   position: absolute;
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 30%, #2a2f3a, #14161a);
-  border: 2px solid #333a45;
-  color: #8b93a1;
-  font-size: 20px;
+  background: linear-gradient(180deg, #3a4250, #1e2229);
+  border: 2px solid #4a5262;
+  color: #e8eaee;
+  font-size: 22px;
   font-weight: 700;
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: transform .12s ease, box-shadow .12s ease;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
   font-family: inherit;
   box-shadow:
-    0 2px 6px rgba(0,0,0,.6),
-    0 0 0 3px rgba(20,22,26,.35);
+    0 3px 8px rgba(0,0,0,.65),
+    0 0 0 3px rgba(20,22,26,.5);
 }
 
 .map-node-locked {
-  opacity: .45;
+  opacity: .65;
   cursor: default;
 }
 
 .map-node-reachable {
+  border-color: #8f6bff;
   box-shadow:
-    0 0 0 3px rgba(143,107,255,.35),
-    0 0 20px rgba(143,107,255,.7),
-    0 0 0 3px rgba(20,22,26,.45);
+    0 3px 8px rgba(0,0,0,.65),
+    0 0 0 3px rgba(143,107,255,.4),
+    0 0 20px rgba(143,107,255,.8);
   animation: mapPulse 1.6s ease-in-out infinite;
 }
 
 .map-node-reachable:hover {
   transform: scale(1.15);
   box-shadow:
-    0 0 0 4px rgba(143,107,255,.55),
-    0 0 32px rgba(143,107,255,.9),
-    0 0 0 3px rgba(20,22,26,.5);
+    0 3px 8px rgba(0,0,0,.65),
+    0 0 0 4px rgba(143,107,255,.6),
+    0 0 32px rgba(143,107,255,1);
 }
 
 .map-node-current {
-  background: radial-gradient(circle at 40% 30%, #4a3580, #2a1f4a);
+  background: linear-gradient(180deg, #5a3fa0, #2a1f4a);
+  border-color: #ffd166;
   box-shadow:
-    0 0 0 4px rgba(255,209,102,.4),
-    0 0 28px rgba(255,209,102,.8),
-    0 0 0 3px rgba(20,22,26,.5);
+    0 3px 8px rgba(0,0,0,.65),
+    0 0 0 4px rgba(255,209,102,.5),
+    0 0 28px rgba(255,209,102,.9);
 }
 
 @keyframes mapPulse {
   0%, 100% {
     box-shadow:
-      0 0 0 3px rgba(143,107,255,.3),
-      0 0 14px rgba(143,107,255,.4),
-      0 0 0 3px rgba(20,22,26,.45);
+      0 3px 8px rgba(0,0,0,.65),
+      0 0 0 3px rgba(143,107,255,.35),
+      0 0 14px rgba(143,107,255,.5);
   }
   50% {
     box-shadow:
-      0 0 0 5px rgba(143,107,255,.45),
-      0 0 26px rgba(143,107,255,.8),
-      0 0 0 3px rgba(20,22,26,.5);
+      0 3px 8px rgba(0,0,0,.65),
+      0 0 0 5px rgba(143,107,255,.55),
+      0 0 26px rgba(143,107,255,.9);
   }
 }
 
