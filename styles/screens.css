@@ -597,7 +597,6 @@
   border-radius: 8px;
   overflow: visible;
   filter: drop-shadow(0 12px 40px rgba(0,0,0,.55));
-  transform: translateX(-70px);
 }
 
 .map-edges {
@@ -606,6 +605,7 @@
   pointer-events: none;
 }
 
+/* Solid boardgame-piece nodes. High contrast so they read on parchment. */
 .map-node {
   position: absolute;
   width: 52px;
