@@ -11,8 +11,13 @@ import {
   pickTreasureRelic, skipTreasure,
 } from '../systems/state.js';
 import {
-  canPlay, playCard, selectCardForPlay, beginEnemyTurn, resolveEnemyTurn, costOf,
+  canPlay, playCard, selectCardForPlay, beginEnemyTurn, resolveEnemyTurn,
 } from '../systems/combat.js';
+import {
+  animateHits,
+  spawnFloatText,
+  spawnBlockEffect,
+} from './animations.js';
 import { CARDS } from '../data/cards.js';
 import { RELICS } from '../data/relics.js';
 import { ENEMY_CARDS } from '../data/enemy-cards.js';
@@ -1105,19 +1110,17 @@ function doPlayCard(card, sourceEl, targetUid) {
     render();
     animateHits(hits);
 
+    const playerEl = document.querySelector('[data-panel="player"]');
+
     const hasBlock = def.effects.some(e => e.kind === 'block');
-    if (hasBlock) {
-      const p = document.querySelector('[data-panel="player"]');
-      if (p) {
-        spawnFloatOn(p, '+BLOCK', 'block');
-        setTimeout(() => spawnBlockEffect(p), 60);
-      }
+    if (hasBlock && playerEl) {
+      spawnFloatText(playerEl, '+BLOCK', 'block');
+      setTimeout(() => spawnBlockEffect(playerEl), 60);
     }
 
     const hasHeal = def.effects.some(e => e.kind === 'heal' || e.kind === 'reaper');
-    if (hasHeal) {
-      const p = document.querySelector('[data-panel="player"]');
-      if (p) spawnFloatOn(p, '+HP', 'heal');
+    if (hasHeal && playerEl) {
+      spawnFloatText(playerEl, '+HP', 'heal');
     }
 
     if (wasPlayed && def.endsTurn && !state.over) {
@@ -1304,175 +1307,4 @@ function renderGameOver(app) {
   el.className = 'screen screen-center';
   el.textContent = 'Game over.';
   app.appendChild(el);
-}
-
-function getPanelElement(uid) {
-  if (!uid || uid === 'player') {
-    return document.querySelector('[data-panel="player"]');
-  }
-  return document.querySelector(`[data-panel="enemy"][data-uid="${uid}"]`);
-}
-
-function animateHits(hits) {
-  hits.forEach((hit, i) => {
-    setTimeout(() => {
-      const targetEl = getPanelElement(hit.targetUid);
-      if (!targetEl) return;
-
-      spawnSlash(targetEl, hit.animation || 'slash');
-
-      const r = targetEl.getBoundingClientRect();
-      spawnSpark(r.left + r.width / 2, r.top + r.height / 2);
-
-      if (hit.blocked > 0) spawnBlockedIndicator(targetEl);
-      if (hit.dealt > 0) {
-        spawnDamageNumber(targetEl, hit.dealt);
-        shakePanel(hit.targetUid);
-        flashPanel(hit.targetUid);
-      }
-    }, i * 280);
-  });
-}
-
-export function spawnFloatOn(el, text, kind = 'damage') {
-  if (!el) return;
-  const r = el.getBoundingClientRect();
-  spawnFloat(r.left + r.width / 2, r.top + 20, text, kind);
-}
-
-export function spawnFloat(x, y, text, kind = 'damage') {
-  const el = document.createElement('div');
-  el.className = `float-text ${kind}`;
-  el.textContent = text;
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 950);
-}
-
-export function spawnSpark(x, y) {
-  const el = document.createElement('div');
-  el.className = 'hit-spark';
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 450);
-}
-
-export function spawnSlash(targetEl, kind = 'slash') {
-  const r = targetEl.getBoundingClientRect();
-  const cx = r.left + r.width / 2;
-  const cy = r.top + r.height / 2;
-
-  const baseAngle = -45 + (Math.random() - 0.5) * 60;
-  const flip = Math.random() < 0.5 ? 1 : -1;
-  const sweepAngle = (baseAngle + 90) * flip;
-  const rad = (sweepAngle * Math.PI) / 180;
-  const dist = 180;
-  const dx = Math.cos(rad) * dist;
-  const dy = Math.sin(rad) * dist;
-
-  spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 0, false);
-  spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 45, true);
-  spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, 90, true);
-
-  setTimeout(() => spawnSlashFlash(cx, cy), 130);
-}
-
-function spawnOneSlash(cx, cy, baseAngle, dx, dy, kind, delay, isTrail) {
-  const el = document.createElement('div');
-  el.className = 'slash-effect ' + kind + (isTrail ? ' trail' : ' main');
-  el.style.left = cx + 'px';
-  el.style.top = cy + 'px';
-  el.style.setProperty('--slash-rot', baseAngle.toFixed(1) + 'deg');
-  el.style.setProperty('--from-x', (-dx).toFixed(0) + 'px');
-  el.style.setProperty('--from-y', (-dy).toFixed(0) + 'px');
-  el.style.setProperty('--to-x', dx.toFixed(0) + 'px');
-  el.style.setProperty('--to-y', dy.toFixed(0) + 'px');
-  if (delay) el.style.animationDelay = delay + 'ms';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 900 + delay);
-}
-
-function spawnSlashFlash(cx, cy) {
-  const el = document.createElement('div');
-  el.className = 'slash-flash';
-  el.style.left = cx + 'px';
-  el.style.top = cy + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 300);
-}
-
-export function spawnBlockedIndicator(targetEl) {
-  const r = targetEl.getBoundingClientRect();
-  const cx = r.left + r.width / 2;
-  const cy = r.top + r.height / 2;
-
-  const shield = document.createElement('img');
-  shield.src = 'assets/shield.png';
-  shield.className = 'block-impact';
-  shield.style.left = cx + 'px';
-  shield.style.top = cy + 'px';
-  document.body.appendChild(shield);
-  setTimeout(() => shield.remove(), 900);
-
-  const label = document.createElement('div');
-  label.className = 'float-text blocked';
-  label.textContent = 'Blocked';
-  label.style.left = (cx + 40) + 'px';
-  label.style.top = (cy - 30) + 'px';
-  document.body.appendChild(label);
-  setTimeout(() => label.remove(), 950);
-}
-
-export function spawnDamageNumber(targetEl, amount) {
-  const r = targetEl.getBoundingClientRect();
-  const jitterX = (Math.random() - 0.5) * 40;
-  const cx = r.left + r.width / 2 + jitterX;
-  const cy = r.top + r.height / 2;
-
-  const el = document.createElement('div');
-  el.className = 'float-text damage';
-  el.textContent = '-' + amount;
-  el.style.left = cx + 'px';
-  el.style.top = cy + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 950);
-}
-
-export function spawnBlockEffect(playerEl) {
-  const r = playerEl.getBoundingClientRect();
-  const cx = r.right + 90;
-  const cy = r.top + r.height / 2;
-
-  const img = document.createElement('img');
-  img.src = 'assets/block.png';
-  img.className = 'block-effect';
-  img.style.left = cx + 'px';
-  img.style.top  = cy + 'px';
-  document.body.appendChild(img);
-  setTimeout(() => img.remove(), 1500);
-
-  const ring = document.createElement('div');
-  ring.className = 'block-ring';
-  ring.style.left = cx + 'px';
-  ring.style.top  = cy + 'px';
-  document.body.appendChild(ring);
-  setTimeout(() => ring.remove(), 1500);
-}
-
-export function shakePanel(uid) {
-  const sel = uid ? `[data-panel="enemy"][data-uid="${uid}"]` : '[data-panel="player"]';
-  const el = document.querySelector(sel);
-  if (!el) return;
-  el.classList.add('shake');
-  setTimeout(() => el.classList.remove('shake'), 420);
-}
-
-export function flashPanel(uid) {
-  const sel = uid ? `[data-panel="enemy"][data-uid="${uid}"]` : '[data-panel="player"]';
-  const el = document.querySelector(sel);
-  if (!el) return;
-  el.classList.add('hit-flash');
-  setTimeout(() => el.classList.remove('hit-flash'), 420);
 }
