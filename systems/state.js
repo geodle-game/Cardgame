@@ -62,6 +62,7 @@ export const state = {
   relicChoices: [],
   combatKind: 'monster',
   combatBanner: null,
+  lastEncounterId: null,
 };
 
 export function cardDef(card) {
@@ -91,8 +92,10 @@ function emptyOverlays() {
 export function actScaling(act) {
   const table = {
     1: { hp: 1.0,  damage: 1.0  },
-    2: { hp: 1.35, damage: 1.15 },
-    3: { hp: 1.8,  damage: 1.35 },
+    2: { hp: 1.3,  damage: 1.15 },
+    3: { hp: 1.55, damage: 1.3  },
+    4: { hp: 1.75, damage: 1.4  },
+    5: { hp: 1.9,  damage: 1.5  },
   };
   return table[act] ?? table[1];
 }
@@ -147,6 +150,7 @@ export function newRun(seed = Date.now()) {
   state.currentAnimation = null;
   state.pendingEnchant = null;
   state.bossLore = null;
+  state.lastEncounterId = null;
 }
 
 export function chooseRelic(relicId) {
@@ -240,16 +244,33 @@ export function skipTreasure() {
 }
 
 function pickEncounter(kind) {
-  const keys = Object.keys(ENCOUNTERS);
-  let pool;
   if (kind === 'monster') {
-    pool = keys.filter(k => k.startsWith('act1-') && !k.includes('elite') && !k.includes('boss'));
-  } else if (kind === 'elite') {
-    pool = keys.filter(k => k.includes('elite'));
+    const pool = [
+      'act1-basic', 'act1-cultist', 'act1-fungi', 'act1-slaver',
+      'act1-slimes', 'act1-spike', 'act1-looter', 'act1-gremlins',
+      'act1-chosen', 'act1-byrd', 'act1-centurion',
+    ];
+    return pool[Math.floor(state.rng() * pool.length)];
+  }
+  if (kind === 'elite') {
+    const pool = ['act1-elite-1', 'act1-elite-2', 'act1-elite-3', 'act1-elite-4'];
+    return pool[Math.floor(state.rng() * pool.length)];
+  }
+
+  const act = state.run.act;
+  let pool;
+  if (act === 1) {
+    pool = ['act1-boss', 'act1-boss-2', 'act1-boss-3'];
+  } else if (act === 2) {
+    pool = ['act1-boss', 'act1-boss-2', 'act1-boss-3']
+      .filter(b => !state.run.bossesBeaten.includes(b));
+    if (!pool.length) pool = ['act1-boss'];
+  } else if (act === 3) {
+    pool = ['act3-boss'];
+  } else if (act === 4) {
+    pool = ['act4-boss'];
   } else {
-    const allBosses = ['act1-boss', 'act1-boss-2', 'act1-boss-3'];
-    const unbeaten = allBosses.filter(b => !state.run.bossesBeaten.includes(b));
-    pool = unbeaten.length ? unbeaten : allBosses;
+    pool = ['final-boss'];
   }
   return pool[Math.floor(state.rng() * pool.length)];
 }
@@ -382,7 +403,10 @@ export function endCombat(win) {
       const lastEncounter = state.lastEncounterId;
       if (lastEncounter) state.run.bossesBeaten.push(lastEncounter);
       state.run.cleared = true;
-      if (state.run.act >= 2) state.run.victory = true;
+      // Victory only fires when you beat the actual final boss.
+      if (lastEncounter === 'final-boss') {
+        state.run.victory = true;
+      }
       return;
     }
 
@@ -587,7 +611,13 @@ export function skipEnchant() {
   backToMap();
 }
 
-// Debug: jump straight into the final boss fight.
+// Debug: jump straight into a specific boss fight.
 export function debugFightDungeonCore() {
   newCombat('final-boss', 'boss');
+}
+export function debugFightFallenDrawn() {
+  newCombat('act3-boss', 'boss');
+}
+export function debugFightWarden() {
+  newCombat('act4-boss', 'boss');
 }
