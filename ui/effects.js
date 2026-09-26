@@ -1,7 +1,8 @@
 // ============================================================
 // ui/effects.js
-// Procedural SVG combat effects that aren't the slash itself.
-// The slash sprite is handled separately in animations.js.
+// Procedural SVG combat effects. The slash and block visuals
+// are PNG-based and live in animations.js; only the impact
+// burst is built here.
 // ============================================================
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -119,7 +120,7 @@ export function spawnImpactBurst(cx, cy, opts = {}) {
   document.body.appendChild(svg);
 
   const t0 = performance.now();
-  const DURATION = 460;
+  const DURATION = 530;
 
   function frame(now) {
     const t = (now - t0) / DURATION;
@@ -151,111 +152,6 @@ export function spawnImpactBurst(cx, cy, opts = {}) {
       s.line.setAttribute('y2', (cy0 + sin * b).toFixed(1));
       s.line.setAttribute('opacity', so.toFixed(3));
     }
-
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-  return svg;
-}
-
-// ============================================================
-// SHIELD BURST
-// ============================================================
-
-export function spawnShieldBurst(cx, cy, opts = {}) {
-  const { duration = 1100 } = opts;
-
-  const size = 180;
-  const cx0 = size / 2, cy0 = size / 2;
-
-  const svg = svgEl('svg', { class: 'fx-shield', width: size, height: size });
-  Object.assign(svg.style, {
-    position: 'fixed',
-    left: (cx - size / 2) + 'px',
-    top:  (cy - size / 2) + 'px',
-    pointerEvents: 'none',
-    zIndex: 9500,
-    overflow: 'visible',
-  });
-
-  const uid = 'sh' + Math.random().toString(36).slice(2, 8);
-  const defs = svgEl('defs');
-
-  const g = svgEl('linearGradient', {
-    id: uid + '_g', x1: '0', y1: '0', x2: '0', y2: '1',
-  });
-  [
-    [0.0, '#bfe4ff'],
-    [0.5, '#6fb3ff'],
-    [1.0, '#3a7fd0'],
-  ].forEach(([off, col]) => {
-    g.appendChild(svgEl('stop', { offset: off, 'stop-color': col }));
-  });
-  defs.appendChild(g);
-
-  const bf = svgEl('filter', {
-    id: uid + '_b', x: '-50%', y: '-50%', width: '200%', height: '200%',
-  });
-  bf.appendChild(svgEl('feGaussianBlur', { stdDeviation: '5' }));
-  defs.appendChild(bf);
-
-  svg.appendChild(defs);
-
-  const shieldD = `
-    M ${cx0} ${cy0 - 62}
-    L ${cx0 + 52} ${cy0 - 40}
-    L ${cx0 + 52} ${cy0 + 6}
-    Q ${cx0 + 52} ${cy0 + 54}, ${cx0} ${cy0 + 66}
-    Q ${cx0 - 52} ${cy0 + 54}, ${cx0 - 52} ${cy0 + 6}
-    L ${cx0 - 52} ${cy0 - 40}
-    Z
-  `;
-
-  const glow = svgEl('path', {
-    d: shieldD, fill: '#6fb3ff', filter: `url(#${uid}_b)`, opacity: 0.55,
-  });
-  svg.appendChild(glow);
-
-  const solid = svgEl('path', {
-    d: shieldD, fill: `url(#${uid}_g)`, opacity: 0,
-  });
-  svg.appendChild(solid);
-
-  const outline = svgEl('path', {
-    d: shieldD, fill: 'none',
-    stroke: '#dff0ff', 'stroke-width': '2.5', opacity: 0,
-  });
-  svg.appendChild(outline);
-
-  const ring = svgEl('circle', {
-    cx: cx0, cy: cy0, r: 0, fill: 'none',
-    stroke: '#6fb3ff', 'stroke-width': '2.5', opacity: 0,
-    filter: `url(#${uid}_b)`,
-  });
-  svg.appendChild(ring);
-
-  document.body.appendChild(svg);
-
-  const t0 = performance.now();
-  function frame(now) {
-    const t = (now - t0) / duration;
-    if (t >= 1) { svg.remove(); return; }
-
-    const riseP = easeOutCubic(clamp01(t / 0.35));
-    const fade = clamp01(t < 0.10
-      ? t / 0.10
-      : 1 - (t - 0.10) / 0.90);
-    const rise = -34 * riseP;
-
-    svg.style.transform = `translateY(${rise.toFixed(1)}px)`;
-
-    solid.setAttribute('opacity', (fade * 0.92).toFixed(3));
-    outline.setAttribute('opacity', fade.toFixed(3));
-    glow.setAttribute('opacity', (fade * 0.6).toFixed(3));
-
-    const rp = easeOutCubic(clamp01(t / 0.45));
-    ring.setAttribute('r', (14 + 60 * rp).toFixed(1));
-    ring.setAttribute('opacity', (1 - rp).toFixed(3));
 
     requestAnimationFrame(frame);
   }
