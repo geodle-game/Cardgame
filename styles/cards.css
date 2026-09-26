@@ -151,6 +151,25 @@
 .card.card-retain::after { background: #6bff9e; }
 .card.card-retain .cname { color: #6bff9e; }
 
+/* Cards disabled by the Dungeon Core this turn */
+.card.card-locked {
+  opacity: .35;
+  filter: grayscale(.9) brightness(.7);
+  position: relative;
+}
+
+.card.card-locked::before {
+  background:
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 1px),
+      rgba(255,80,80,.6) calc(50% - 1px),
+      rgba(255,80,80,.6) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+  z-index: 2;
+}
+
 .card.playing {
   animation: cardFly .45s cubic-bezier(.4,0,.5,1) forwards;
   pointer-events: none;
@@ -207,7 +226,7 @@
 }
 
 /* ============================================================
-   ENCHANT BADGE (on the card face)
+   ENCHANT BADGE
    ============================================================ */
 
 .card-enchant {
@@ -243,13 +262,10 @@
   color: #b8bdc7;
 }
 
-.card.card-big .card-enchant {
-  padding: 8px 10px;
-}
+.card.card-big .card-enchant { padding: 8px 10px; }
 .card.card-big .card-enchant-name { font-size: 13px; }
 .card.card-big .card-enchant-text { font-size: 11px; }
 
-/* Enchant pick screen: highlight eligible cards */
 .card.enchant-target {
   border-color: #c9a3ff;
   box-shadow:
