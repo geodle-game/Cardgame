@@ -7,22 +7,17 @@
    1. EFFECT CONTAINER SAFETY NETS
    ============================================================ */
 
-.fx-impact,
-.fx-shield {
+.fx-impact {
   position: fixed;
   pointer-events: none;
   overflow: visible;
   user-select: none;
   -webkit-user-select: none;
+  z-index: 8980;
 }
 
-.fx-impact { z-index: 8980; }
-.fx-shield { z-index: 9500; }
-
 .fx-impact line,
-.fx-impact circle,
-.fx-shield path,
-.fx-shield circle {
+.fx-impact circle {
   shape-rendering: geometricPrecision;
   will-change: opacity;
 }
@@ -55,6 +50,114 @@
   filter:
     saturate(0) brightness(1.7) contrast(1.1)
     drop-shadow(0 0 8px rgba(230, 240, 255, 0.95));
+}
+
+
+/* ============================================================
+   2b. BLOCK PNG
+   ============================================================ */
+
+.block-effect {
+  position: fixed;
+  width: 130px;
+  height: 130px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 9500;
+  transform: translate(-50%, -50%);
+  animation: blockEffect 1.4s cubic-bezier(.15, .85, .3, 1) forwards;
+  filter:
+    drop-shadow(0 0 22px rgba(111, 179, 255, 1))
+    drop-shadow(0 0 44px rgba(111, 179, 255, .55));
+}
+
+@keyframes blockEffect {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.3) rotate(-18deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -55%) scale(1.25) rotate(-8deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(-50%, -70%) scale(1.05) rotate(-6deg);
+  }
+  75% {
+    opacity: .85;
+    transform: translate(-50%, -95%) scale(1) rotate(-5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -150%) scale(1.05) rotate(-5deg);
+  }
+}
+
+.block-ring {
+  position: fixed;
+  width: 60px;
+  height: 60px;
+  margin-left: -30px;
+  margin-top: -30px;
+  border-radius: 50%;
+  border: 3px solid rgba(111, 179, 255, .95);
+  pointer-events: none;
+  z-index: 9499;
+  box-shadow:
+    0 0 24px rgba(111, 179, 255, .95),
+    0 0 48px rgba(111, 179, 255, .5) inset;
+  animation: blockRing 1.4s cubic-bezier(.15, .85, .3, 1) forwards;
+}
+
+@keyframes blockRing {
+  0% {
+    opacity: 0;
+    transform: scale(.3);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+  60% {
+    opacity: .55;
+    transform: scale(2.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+.block-impact {
+  position: fixed;
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 28px rgba(111, 179, 255, 1));
+  animation: blockImpact .8s cubic-bezier(.2, .9, .3, 1.4) forwards;
+}
+
+@keyframes blockImpact {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.3) rotate(-20deg);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.45) rotate(0deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -75%) scale(1.2) rotate(0deg);
+  }
 }
 
 
@@ -279,10 +382,7 @@
    ============================================================ */
 
 .slash-effect,
-.hit-spark,
-.block-impact,
-.block-effect,
-.block-ring {
+.hit-spark {
   position: fixed;
   pointer-events: none;
   opacity: 0;
