@@ -1,7 +1,10 @@
 import { liveDamage, liveAoE } from './cards.js';
+import { BOSSES } from './bosses/index.js';
 
 export const ENEMY_CARDS = {
-  // -------- Normal --------
+  // ============================================================
+  // NORMAL ENEMIES
+  // ============================================================
   bite: {
     id: 'bite', name: 'Bite', cost: 1, owner: 'enemy',
     type: 'attack', target: 'player', destination: 'discard',
@@ -217,7 +220,9 @@ export const ENEMY_CARDS = {
     },
   },
 
-  // -------- Elite --------
+  // ============================================================
+  // ELITES
+  // ============================================================
   'nob-rush': {
     id: 'nob-rush', name: 'Rush', cost: 1, owner: 'enemy',
     type: 'attack', target: 'player', destination: 'discard',
@@ -287,7 +292,9 @@ export const ENEMY_CARDS = {
     liveValues: liveDamage(14),
   },
 
-  // -------- Boss --------
+  // ============================================================
+  // ACT BOSSES
+  // ============================================================
   'guardian-slam': {
     id: 'guardian-slam', name: 'Slam', cost: 1, owner: 'enemy',
     type: 'attack', target: 'player', destination: 'discard',
@@ -313,16 +320,12 @@ export const ENEMY_CARDS = {
       { kind: 'applyStatus', status: 'vulnerable', amount: 2 },
     ],
   },
-
-  // Divider now deals half the player's MAX HP (not current).
-  // At 70 max that's 35 damage. Ignores Strength/Weak/Vulnerable.
   'hexaghost-divider': {
     id: 'hexaghost-divider', name: 'Divider', cost: 1, owner: 'enemy',
     type: 'attack', target: 'player', destination: 'discard',
-    text: "Deal damage equal to half your max HP.",
+    text: 'Deal damage equal to half your max HP.',
     effects: [{ kind: 'damagePercentMaxHp', percent: 0.5 }],
   },
-
   'hexaghost-sear': {
     id: 'hexaghost-sear', name: 'Sear', cost: 1, owner: 'enemy',
     type: 'attack', target: 'player', destination: 'discard',
@@ -377,6 +380,13 @@ export const ENEMY_CARDS = {
     liveValues: liveDamage(24),
   },
 };
+
+// Merge boss-specific cards into ENEMY_CARDS.
+for (const bossModule of BOSSES) {
+  if (bossModule.CARDS) {
+    Object.assign(ENEMY_CARDS, bossModule.CARDS);
+  }
+}
 
 export const ENEMY_ADDED_CARDS = {
   slimed: {
