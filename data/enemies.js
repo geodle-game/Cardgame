@@ -1,3 +1,5 @@
+import { BOSSES } from './bosses/index.js';
+
 export const ENEMIES = {
   // -------- Normal --------
   'jaw-worm': {
@@ -90,6 +92,13 @@ export const ENEMIES = {
   },
 };
 
+// Merge bosses from data/bosses/*.js into ENEMIES.
+for (const bossModule of BOSSES) {
+  if (bossModule.ENEMY) {
+    ENEMIES[bossModule.ENEMY.id] = bossModule.ENEMY;
+  }
+}
+
 export const ENCOUNTERS = {
   // Normal
   'act1-basic':     ['jaw-worm', 'louse'],
@@ -114,6 +123,9 @@ export const ENCOUNTERS = {
   'act1-boss':      ['the-guardian'],
   'act1-boss-2':    ['hexaghost'],
   'act1-boss-3':    ['slime-boss'],
+
+  // Final Boss
+  'final-boss':     ['dungeon-core'],
 };
 
 export function getEnemyDef(id) {
