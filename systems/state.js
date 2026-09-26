@@ -10,6 +10,18 @@ import { randomEvent } from '../data/events.js';
 import { rollShop } from '../data/shop.js';
 import { bannerForCombat } from '../data/banners.js';
 import { rollEnchant, getEnchant } from '../data/enchants.js';
+import { BOSSES } from '../data/bosses/index.js';
+
+const BOSS_LORE = {};
+for (const bossModule of BOSSES) {
+  if (bossModule.ENEMY && bossModule.LORE) {
+    BOSS_LORE[bossModule.ENEMY.id] = bossModule.LORE;
+  }
+}
+
+export function getBossLore(enemyId) {
+  return BOSS_LORE[enemyId] || null;
+}
 
 export const state = {
   screen: 'relicPick',
@@ -34,6 +46,7 @@ export const state = {
 
   lastHits: [],
   currentAnimation: null,
+  bossLore: null,
 
   reward: null,
   actReward: null,
@@ -61,6 +74,16 @@ export function pushLog(msg) {
   if (state.log.length > 60) state.log.shift();
 }
 
+export function showBossLore(enemyId, trigger) {
+  const lore = getBossLore(enemyId);
+  if (!lore || !lore[trigger]) return;
+  state.bossLore = { enemyId, trigger, lines: lore[trigger] };
+}
+
+export function dismissBossLore() {
+  state.bossLore = null;
+}
+
 function emptyOverlays() {
   return { deck: false, relics: false, draw: false, discard: false, exhaust: false };
 }
@@ -69,7 +92,7 @@ export function actScaling(act) {
   const table = {
     1: { hp: 1.0,  damage: 1.0  },
     2: { hp: 1.35, damage: 1.15 },
-    3: { hp: 1.55,  damage: 1.35  },
+    3: { hp: 1.8,  damage: 1.35 },
   };
   return table[act] ?? table[1];
 }
@@ -89,7 +112,6 @@ export function hasRelicTrigger(trigger) {
   return false;
 }
 
-// Deck entries are { defId, enchant: string|null }.
 function makeDeckEntry(defId) {
   return { defId, enchant: null };
 }
@@ -124,6 +146,7 @@ export function newRun(seed = Date.now()) {
   state.lastHits = [];
   state.currentAnimation = null;
   state.pendingEnchant = null;
+  state.bossLore = null;
 }
 
 export function chooseRelic(relicId) {
@@ -275,10 +298,10 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
       cardDraw,
       cardDiscard: [],
       intentCard: null,
+      loreTriggered: {},
     };
   });
 
-  // Deck entries carry enchants through into combat as card instances.
   state.drawPile = shuffle(
     state.run.deck.map(entry => makeCard(entry.defId, entry.enchant)),
     state.rng,
@@ -295,6 +318,7 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
   state.newlyDrawn = new Set();
   state.lastHits = [];
   state.currentAnimation = null;
+  state.bossLore = null;
   state.selectedEnemyId = state.enemies[0]?.uid ?? null;
   state.log = [];
   state.overlays = emptyOverlays();
@@ -310,6 +334,13 @@ export function newCombat(encounterId = 'act1-basic', sourceKind = 'monster') {
     if (r.energy) state.player.nextTurnEnergy += r.energy;
   });
 
+  for (const e of state.enemies) {
+    if (e.isBoss) {
+      showBossLore(e.id, 'start');
+      e.loreTriggered.start = true;
+    }
+  }
+
   for (const e of state.enemies) rollIntent(e);
   startPlayerTurn(true);
   pushLog('Combat start.');
@@ -323,6 +354,20 @@ export function endCombat(win) {
     forEachRelic('combatEnd', (r) => {
       if (r.heal) state.run.hp = Math.min(state.run.maxHp, state.run.hp + r.heal);
     });
+
+    for (const e of state.enemies) {
+      if (e.isBoss && !e.loreTriggered.onDeath) {
+        showBossLore(e.id, 'onDeath');
+        e.loreTriggered.onDeath = true;
+      }
+    }
+  } else {
+    for (const e of state.enemies) {
+      if (e.isBoss && !e.loreTriggered.onPlayerDeath) {
+        showBossLore(e.id, 'onPlayerDeath');
+        e.loreTriggered.onPlayerDeath = true;
+      }
+    }
   }
 
   state.over = true;
@@ -409,6 +454,7 @@ export function rollIntent(enemy) {
 export function startPlayerTurn(isFirstTurn = false) {
   state.turn = 'player';
   state.previewCardUid = null;
+  for (const c of state.hand) delete c.disabledThisTurn;
   if (!isFirstTurn) {
     let keepPercent = 0;
     let keepMax = 999;
@@ -434,8 +480,6 @@ export function livingEnemies() {
   return state.enemies.filter(e => e.hp > 0);
 }
 
-// ---------- Rewards ----------
-
 export function claimReward() {
   if (!state.reward) return;
   state.run.gold += state.reward.coins;
@@ -455,8 +499,6 @@ export function skipRewardCard() {
   if (!state.reward) return;
   state.reward.taken = true;
 }
-
-// ---------- Event ----------
 
 export function pickEventChoice(index) {
   if (!state.event) return;
@@ -481,8 +523,6 @@ function applyMetaEffect(eff) {
   }
 }
 
-// ---------- Shop ----------
-
 export function buyShopCard(index) {
   if (!state.shop) return;
   const item = state.shop.items[index];
@@ -502,8 +542,6 @@ export function buyShopHeal() {
   pushLog('Healed 25 HP.');
 }
 
-// ---------- Rest ----------
-
 export function restHeal() {
   const amount = Math.floor(state.run.maxHp * 0.3);
   state.run.hp = Math.min(state.run.maxHp, state.run.hp + amount);
@@ -511,8 +549,6 @@ export function restHeal() {
   backToMap();
 }
 
-// Start an enchant session. Rolls a random enchant and moves to the
-// enchant-pick screen. If the deck has no enchantable cards, refunds.
 export function restEnchantStart() {
   const eligible = state.run.deck
     .map((entry, i) => entry.enchant ? -1 : i)
@@ -532,8 +568,6 @@ export function restEnchantStart() {
   state.screen = 'enchantPick';
 }
 
-// Apply the pending enchant to a specific deck index. Index must be
-// one of the eligible (un-enchanted) indices recorded at roll time.
 export function applyEnchant(index) {
   if (!state.pendingEnchant) return;
   if (!state.pendingEnchant.eligibleIndices.includes(index)) return;
@@ -551,4 +585,9 @@ export function skipEnchant() {
   if (!state.pendingEnchant) return;
   state.pendingEnchant = null;
   backToMap();
+}
+
+// Debug: jump straight into the final boss fight.
+export function debugFightDungeonCore() {
+  newCombat('final-boss', 'boss');
 }
