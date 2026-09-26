@@ -1,0 +1,398 @@
+/* ============================================================
+   animations.css — Drawn to Ruin
+   ------------------------------------------------------------
+   Every visual feedback system used during combat.
+
+   Layout of this file:
+     1. Effect container safety nets (SVG fx-* elements)
+     2. Panel reactions        (attacker windup, knockback, flash)
+     3. Screen effects         (shake, hit-stop, flash)
+     4. Floating combat text   (damage, block, heal, blocked)
+     5. Deprecated fallbacks   (legacy class names, safe to delete
+                                once you've verified nothing calls them)
+
+   The actual slash / impact / shield visuals are built
+   procedurally in ui/effects.js as inline SVG. There is no
+   PNG artwork used for combat effects anymore.
+   ============================================================ */
+
+
+/* ============================================================
+   1. EFFECT CONTAINER SAFETY NETS
+   ------------------------------------------------------------
+   These elements are created and styled inline by effects.js.
+   These rules are a belt-and-suspenders guarantee that they
+   never eat clicks, never clip, and never sit under the HUD.
+   ============================================================ */
+
+.fx-crescent,
+.fx-impact,
+.fx-shield {
+  position: fixed;
+  pointer-events: none;
+  overflow: visible;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fx-crescent { z-index: 9000; }
+.fx-impact   { z-index: 8980; }
+.fx-shield   { z-index: 9500; }
+
+/* Animated SVG paths shouldn't trigger any GPU-composited shimmer. */
+.fx-crescent path,
+.fx-impact line,
+.fx-impact circle,
+.fx-shield path,
+.fx-shield circle {
+  shape-rendering: geometricPrecision;
+  will-change: opacity;
+}
+
+
+/* ============================================================
+   2. PANEL REACTIONS
+   ------------------------------------------------------------
+   Applied to [data-panel="player"] and [data-panel="enemy"].
+   Custom properties --windup-x / --windup-rot / --kb-x are set
+   by animations.js so direction is always attacker → target.
+   ============================================================ */
+
+/* ---------- Attacker leans in ---------- */
+
+.panel.attacking {
+  animation: attackerWindup 140ms cubic-bezier(.3, .8, .4, 1) forwards;
+}
+
+@keyframes attackerWindup {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  70% {
+    transform:
+      translate(var(--windup-x, 10px), 0)
+      rotate(var(--windup-rot, 2.5deg))
+      scale(0.97);
+  }
+  100% {
+    transform:
+      translate(calc(var(--windup-x, 10px) * 0.3), 0)
+      rotate(calc(var(--windup-rot, 2.5deg) * 0.3))
+      scale(1);
+  }
+}
+
+/* ---------- Target knockback ---------- */
+
+.panel.knocked {
+  animation: targetKnockback 420ms cubic-bezier(.2, .9, .3, 1.2);
+}
+
+@keyframes targetKnockback {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform:
+      translate(var(--kb-x, 8px), 0)
+      scale(0.96);
+  }
+  55% {
+    transform:
+      translate(calc(var(--kb-x, 8px) * -0.2), 0)
+      scale(1.03);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* ---------- Target flashes on impact ---------- */
+
+.panel.hit-flash {
+  animation: hitFlash 380ms ease-out;
+}
+
+@keyframes hitFlash {
+  0% {
+    background-color: rgba(255, 220, 180, 0.85);
+  }
+  40% {
+    background-color: rgba(255, 120, 80, 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+
+/* ============================================================
+   3. SCREEN EFFECTS
+   ------------------------------------------------------------
+   .screen-shake  — applied to #app for ~380ms on any hit ≥ 1
+                    intensity is scaled via --shake-power
+   .hit-stop      — brief freeze-frame at contact; pausing
+                    animations inside #app sells the impact
+   .screen-flash  — full-viewport color flash on big hits
+   ============================================================ */
+
+#app.screen-shake {
+  animation: screenShake 380ms cubic-bezier(.36, .07, .19, .97);
+}
+
+@keyframes screenShake {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  10% {
+    transform: translate(
+      calc(-8px * var(--shake-power, 1)),
+      calc( 5px * var(--shake-power, 1))
+    );
+  }
+  20% {
+    transform: translate(
+      calc( 9px * var(--shake-power, 1)),
+      calc(-4px * var(--shake-power, 1))
+    );
+  }
+  30% {
+    transform: translate(
+      calc(-6px * var(--shake-power, 1)),
+      calc( 6px * var(--shake-power, 1))
+    );
+  }
+  40% {
+    transform: translate(
+      calc( 7px * var(--shake-power, 1)),
+      calc(-3px * var(--shake-power, 1))
+    );
+  }
+  50% {
+    transform: translate(
+      calc(-5px * var(--shake-power, 1)),
+      calc( 4px * var(--shake-power, 1))
+    );
+  }
+  60% {
+    transform: translate(
+      calc( 4px * var(--shake-power, 1)),
+      calc(-3px * var(--shake-power, 1))
+    );
+  }
+  70% {
+    transform: translate(
+      calc(-3px * var(--shake-power, 1)),
+      calc( 2px * var(--shake-power, 1))
+    );
+  }
+  80% {
+    transform: translate(
+      calc( 2px * var(--shake-power, 1)),
+      calc(-1px * var(--shake-power, 1))
+    );
+  }
+  90% {
+    transform: translate(
+      calc(-1px * var(--shake-power, 1)),
+      calc( 1px * var(--shake-power, 1))
+    );
+  }
+}
+
+/* Hit-stop: freeze every animation inside #app for the duration.
+   Prevents the crescent / burst from continuing through the pause. */
+#app.hit-stop * {
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+
+.screen-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10000;
+  opacity: 0;
+  animation: screenFlash 220ms ease-out forwards;
+}
+
+@keyframes screenFlash {
+  0%   { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+
+
+/* ============================================================
+   4. FLOATING COMBAT TEXT
+   ------------------------------------------------------------
+   Every float lives directly on <body> and is positioned with
+   inline left/top from animations.js. The CSS only defines
+   the pop animation and per-kind styling.
+
+   .float-text.damage        — big, bold, colored by kind-*
+   .float-text.damage.kind-* — heavy / magic / pierce variants
+   .float-text.block         — "+BLOCK" on the player
+   .float-text.heal          — "+HP"
+   .float-text.blocked       — "BLOCKED" when a hit is absorbed
+   ============================================================ */
+
+.float-text {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, 0);
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  will-change: transform, opacity;
+}
+
+/* ---------- Damage ---------- */
+
+.float-text.damage {
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #ff6b6b;
+  animation: damagePop 900ms cubic-bezier(.2, .9, .3, 1.4) forwards;
+  text-shadow:
+    0 0 20px rgba(255, 80, 80, 0.95),
+    0 0 8px  rgba(255, 150, 80, 0.8),
+    0 2px 4px rgba(0, 0, 0, 0.95);
+}
+
+.float-text.damage.kind-heavy {
+  color: #ff4a4a;
+  text-shadow:
+    0 0 26px rgba(255, 50, 50, 1),
+    0 0 12px rgba(255, 120, 80, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.95);
+}
+
+.float-text.damage.kind-magic {
+  color: #c9a3ff;
+  text-shadow:
+    0 0 24px rgba(201, 163, 255, 1),
+    0 0 8px  rgba(140, 100, 255, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.95);
+}
+
+.float-text.damage.kind-pierce {
+  color: #ffe699;
+  text-shadow:
+    0 0 22px rgba(255, 230, 150, 0.95),
+    0 2px 4px rgba(0, 0, 0, 0.95);
+}
+
+@keyframes damagePop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.25);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -18px) scale(1.35);
+  }
+  35% {
+    transform: translate(-50%, -26px) scale(0.95);
+  }
+  55% {
+    transform: translate(-50%, -34px) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -80px) scale(0.9);
+  }
+}
+
+/* ---------- Block / Heal / Blocked ---------- */
+
+.float-text.block {
+  color: #6fb3ff;
+  font-size: 22px;
+  animation: floatUp 900ms ease-out forwards;
+}
+
+.float-text.heal {
+  color: #6bff9e;
+  font-size: 24px;
+  animation: floatUp 900ms ease-out forwards;
+}
+
+.float-text.blocked {
+  color: #6fb3ff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  animation: floatUp 900ms ease-out forwards;
+  text-shadow:
+    0 0 12px rgba(111, 179, 255, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -14px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -70px) scale(1);
+  }
+}
+
+
+/* ============================================================
+   5. DEPRECATED FALLBACKS
+   ------------------------------------------------------------
+   These classes were used by the old PNG-based effect system.
+   They are safe to delete once you've confirmed no call site
+   still references them. Kept here temporarily so any stale
+   reference degrades gracefully instead of breaking layout.
+   ============================================================ */
+
+/* Old `.slash-effect` PNG elements — do nothing visual,
+   but stay invisible and inert if any survive in the DOM. */
+.slash-effect {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Old hit-spark div */
+.hit-spark {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Old block-impact / block-effect / block-ring divs */
+.block-impact,
+.block-effect,
+.block-ring {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The generic .shake class (panel shake) is still used by the
+   legacy `shakePanel()` compat shim in animations.js. */
+.panel.shake {
+  animation: shake 400ms cubic-bezier(.36, .07, .19, .97);
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-8px); }
+  40%, 60% { transform: translateX(8px); }
+}
