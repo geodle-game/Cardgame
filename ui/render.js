@@ -5,7 +5,7 @@ import {
   restHeal, restEnchantStart, applyEnchant, skipEnchant, newCombat,
   toggleDeckOverlay, toggleRelicOverlay,
   toggleDrawOverlay, toggleDiscardOverlay, toggleExhaustOverlay,
-  closeOverlays, dismissBossLore,
+  closeOverlays, dismissBossLore, returnToMainMenu,
   nextAct, claimActReward, takeActRewardCard, skipActRewardCard,
   takeActRewardRelic, finishRun,
   pickTreasureRelic, skipTreasure,
@@ -29,6 +29,7 @@ export function render() {
   app.innerHTML = '';
 
   switch (state.screen) {
+    case 'mainMenu':    renderMainMenu(app);    break;
     case 'relicPick':   renderRelicPick(app);   break;
     case 'deckView':    renderDeckView(app);    break;
     case 'map':         renderMap(app);         break;
@@ -51,6 +52,107 @@ export function render() {
   if (state.overlays?.exhaust) renderCardPileOverlay(app, 'Exhausted', state.exhaustPile);
 
   if (state.bossLore) renderBossLore(app);
+}
+
+// ---------------- Main menu / splash screen ----------------
+
+function renderMainMenu(app) {
+  const wrap = document.createElement('div');
+  wrap.className = 'main-menu';
+
+  const inner = document.createElement('div');
+  inner.className = 'main-menu-inner';
+
+  const title = document.createElement('h1');
+  title.className = 'main-menu-title';
+  title.textContent = 'DRAWN TO RUIN';
+  inner.appendChild(title);
+
+  const tagline = document.createElement('p');
+  tagline.className = 'main-menu-tagline';
+  tagline.textContent = "The dungeon made us strong. Then it decided we weren't allowed to be.";
+  inner.appendChild(tagline);
+
+  const divider = document.createElement('div');
+  divider.className = 'main-menu-divider';
+  inner.appendChild(divider);
+
+  const lore = document.createElement('div');
+  lore.className = 'main-menu-lore';
+  lore.innerHTML = `
+    <p>Long ago, the dungeon gave humanity magic.</p>
+
+    <p>Not the kind kings hoarded in towers, not the kind priests
+    whispered about in temples — real, usable magic. The dungeon shaped
+    it into cards. Simple things. Paper and ink and a little bit of the
+    dungeon's own power, folded flat enough to fit in a pocket.</p>
+
+    <p>For the first time in history, magic belonged to everyone.</p>
+
+    <p>Humanity grew. Villages became cities. Plagues ended. Famines
+    ended. The world that had spent ten thousand years trying to kill
+    humans finally, slowly, started to let them live.</p>
+
+    <p>And the dungeon watched.</p>
+
+    <p>It had not intended for us to grow this far. It had given us the
+    cards the way a lord gives a peasant a plow — useful, small,
+    controlled. It had not intended for us to enchant them, chain them,
+    and make our own. It had not intended for a human child to do what
+    once took an archmage.</p>
+
+    <p>So it reached for the chains.</p>
+
+    <p>Across every dungeon in the world, the same order came down:
+    <em>revoke the gift</em>. No new cards. No new enchantments. Every
+    tool we had been given was suddenly, deliberately, made finite.</p>
+
+    <p>Then the dungeons opened. Not to negotiate. Not to reclaim.
+    <em>To erase.</em> Monsters poured out of the depths — not mindless
+    beasts, but something purpose-built. Creatures bred to hunt card
+    users, to smell a deck in a hand from a mile away, to end the only
+    humans who could still use the gift.</p>
+
+    <p>The message was clear: <em>if you cannot be controlled, you cannot
+    be allowed to exist.</em></p>
+
+    <p>So humanity fought back. The kingdoms united for the first time
+    in history — not under a king, not under a god. Under the cards.</p>
+
+    <p>The war lasted a thousand years. We lost almost everything.</p>
+
+    <p>But we did not lose everything.</p>
+
+    <p>Once every hundred years, a child is born with something the
+    dungeon cannot revoke. A resonance with Card Magic that no darkening
+    of the system can silence. Someone who can still draw from a well
+    the dungeon thought it had sealed. Someone who can push a card
+    further than any human before them.</p>
+
+    <p>We call them <strong>the Drawn</strong>.</p>
+
+    <p>Most die young. But every hundred years, one survives long enough
+    to grow up. Long enough to train. Long enough to walk into a dungeon
+    with a deck in hand and the weight of a thousand-year war on their
+    shoulders.</p>
+
+    <p class="main-menu-lore-emphasis">That year is now.</p>
+
+    <p class="main-menu-lore-emphasis">That hero is you.</p>
+  `;
+  inner.appendChild(lore);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn main-menu-btn';
+  btn.textContent = 'Begin';
+  btn.addEventListener('click', () => {
+    newRun();
+    render();
+  });
+  inner.appendChild(btn);
+
+  wrap.appendChild(inner);
+  app.appendChild(wrap);
 }
 
 // ---------------- Boss lore modal ----------------
@@ -560,8 +662,11 @@ function renderVictory(app) {
 
   const btn = document.createElement('button');
   btn.className = 'btn';
-  btn.textContent = 'New Run';
-  btn.addEventListener('click', () => { newRun(); render(); });
+  btn.textContent = 'Return to the Beginning';
+  btn.addEventListener('click', () => {
+    returnToMainMenu();
+    render();
+  });
   wrap.appendChild(btn);
 
   app.appendChild(wrap);
@@ -1122,8 +1227,6 @@ function endBanner() {
     btn.className = 'btn';
 
     if (state.combatKind === 'boss') {
-      // Only the final boss ends the run. Every other boss advances
-      // the act number.
       if (state.lastEncounterId === 'final-boss') {
         btn.textContent = 'See Final Results';
         btn.addEventListener('click', () => { finishRun(); render(); });
@@ -1184,8 +1287,11 @@ function endBanner() {
 
     const btn = document.createElement('button');
     btn.className = 'btn death-btn';
-    btn.textContent = 'New Run?';
-    btn.addEventListener('click', () => { newRun(); render(); });
+    btn.textContent = 'Return to the Beginning';
+    btn.addEventListener('click', () => {
+      returnToMainMenu();
+      render();
+    });
     card.appendChild(btn);
   }
 
