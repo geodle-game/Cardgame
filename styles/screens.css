@@ -325,40 +325,7 @@
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-/* ============================================================
-   BLOCK GAIN EFFECT
-   ============================================================ */
 
-.block-effect {
-  position: fixed;
-  width: 80px;
-  height: 80px;
-  object-fit: contain;
-  pointer-events: none;
-  z-index: 9999;
-  transform: translate(-50%, -50%);
-  animation: blockEffect .95s cubic-bezier(.2,.9,.3,1) forwards;
-  filter: drop-shadow(0 6px 16px rgba(111,179,255,.7));
-}
-
-@keyframes blockEffect {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(.4) rotate(-15deg);
-  }
-  30% {
-    opacity: 1;
-    transform: translate(-50%, -65%) scale(1.15) rotate(-8deg);
-  }
-  70% {
-    opacity: 1;
-    transform: translate(-50%, -80%) scale(1) rotate(-8deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -130%) scale(1.05) rotate(-8deg);
-  }
-}
 /* ============================================================
    VICTORY / DEFEAT OVERLAY
    ============================================================ */
@@ -549,10 +516,14 @@
 .map-board {
   position: relative;
   margin: 0 auto;
-  background: radial-gradient(ellipse at bottom, #1a1e28 0%, #14161a 70%);
-  border: 1px solid #2a2f3a;
-  border-radius: 12px;
-  overflow: hidden;
+  background-image: url('../assets/emptymap.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: none;
+  border-radius: 8px;
+  overflow: visible;
+  filter: drop-shadow(0 12px 40px rgba(0,0,0,.55));
 }
 
 .map-edges {
@@ -561,12 +532,13 @@
   pointer-events: none;
 }
 
+/* Nodes get an ink-stamp look so they read against the parchment. */
 .map-node {
   position: absolute;
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #161a22;
+  background: radial-gradient(circle at 40% 30%, #2a2f3a, #14161a);
   border: 2px solid #333a45;
   color: #8b93a1;
   font-size: 20px;
@@ -576,31 +548,53 @@
   place-items: center;
   transition: transform .12s ease, box-shadow .12s ease;
   font-family: inherit;
+  box-shadow:
+    0 2px 6px rgba(0,0,0,.6),
+    0 0 0 3px rgba(20,22,26,.35);
 }
 
 .map-node-locked {
-  opacity: .35;
+  opacity: .45;
   cursor: default;
 }
 
 .map-node-reachable {
-  box-shadow: 0 0 0 3px rgba(143,107,255,.2), 0 0 16px rgba(143,107,255,.35);
+  box-shadow:
+    0 0 0 3px rgba(143,107,255,.35),
+    0 0 20px rgba(143,107,255,.7),
+    0 0 0 3px rgba(20,22,26,.45);
   animation: mapPulse 1.6s ease-in-out infinite;
 }
 
 .map-node-reachable:hover {
   transform: scale(1.15);
-  box-shadow: 0 0 0 4px rgba(143,107,255,.35), 0 0 24px rgba(143,107,255,.6);
+  box-shadow:
+    0 0 0 4px rgba(143,107,255,.55),
+    0 0 32px rgba(143,107,255,.9),
+    0 0 0 3px rgba(20,22,26,.5);
 }
 
 .map-node-current {
-  background: #2a1f4a;
-  box-shadow: 0 0 0 4px rgba(255,209,102,.3), 0 0 20px rgba(255,209,102,.5);
+  background: radial-gradient(circle at 40% 30%, #4a3580, #2a1f4a);
+  box-shadow:
+    0 0 0 4px rgba(255,209,102,.4),
+    0 0 28px rgba(255,209,102,.8),
+    0 0 0 3px rgba(20,22,26,.5);
 }
 
 @keyframes mapPulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(143,107,255,.2), 0 0 12px rgba(143,107,255,.3); }
-  50%      { box-shadow: 0 0 0 5px rgba(143,107,255,.3), 0 0 22px rgba(143,107,255,.6); }
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px rgba(143,107,255,.3),
+      0 0 14px rgba(143,107,255,.4),
+      0 0 0 3px rgba(20,22,26,.45);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(143,107,255,.45),
+      0 0 26px rgba(143,107,255,.8),
+      0 0 0 3px rgba(20,22,26,.5);
+  }
 }
 
 /* ============================================================
